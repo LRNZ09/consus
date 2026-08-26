@@ -5,16 +5,16 @@
 **Supersedes:** the 2026-08-20 revision of this document, which activated each
 tool through its own configuration language. Measurement retired that choice —
 see "Options considered" and "Verified facts".
-**Prerequisite for:** the `fides` machine record, whose `satellites` role cannot
+**Prerequisite for:** the `sancus` machine record, whose `satellites` role cannot
 run until `consus` exists and is pushed. That spec
-(`docs/superpowers/specs/2026-08-20-fides-design.md` in `LRNZ09/fides`) still
+(`docs/superpowers/specs/2026-08-20-sancus-design.md` in `LRNZ09/sancus`) still
 describes a superseded layout — see "What this repo guarantees a provisioner".
 
 ## What this does
 
 Renames `LRNZ09/dotgit` to `LRNZ09/consus` and relocates its checkout to
 `~/Developer/LRNZ09/consus`, where it becomes an ordinary browsable repo in
-the same directory as `vesta` and `fides`. Five of its tracked files — `config`,
+the same directory as `vesta` and `sancus`. Five of its tracked files — `config`,
 both `.example` files, `README.md` and `.gitignore` — move into a `configs/git/`
 subdirectory by `git mv`; `.gitleaks.toml`, the gitleaks workflow and `docs/`
 stay at the root, and `.githooks/` is removed. The repo's entire linear history
@@ -26,7 +26,7 @@ so no clone or remote anywhere breaks.
 
 The name follows the family convention, where the name's domain matches the
 repo's function: `vesta` the hearth for the homelab interior, `janus` the
-doorway for its gateway, `fides` good faith for the machine record. A consus
+doorway for its gateway, `sancus` good faith for the machine record. A consus
 is the one member of that family that is not a deity but the fixture the deities
 stand in — the shrine niche built into the wall of every Roman house, holding
 the gods of that particular household. That is what this repo is: not the
@@ -145,7 +145,7 @@ most likely to happen. chezmoi additionally puts its own config
 and boltdb inside `~/.config`, is not safely automatable without a `status`
 guard, and its own documentation answers this problem class with symlinks.
 
-**Fold the config into `fides`.** The only option that leaves `~/.config`
+**Fold the config into `sancus`.** The only option that leaves `~/.config`
 cleaner than the status quo. It was rejected for forcing the tracked set from
 117 files down to 19, for losing exact `fisher` pinning, and for destroying the
 repo as a standalone clonable artifact.
@@ -450,7 +450,7 @@ disagree.
 There is no `stubs/` directory. Only one stub survives, and it carries an
 absolute path that differs per clone, so `bin/install` writes it rather than
 copying a tracked file. Self-reproducibility is preserved: a clone reaches a
-working state from its own README and its own `bin/install`, and `fides` may
+working state from its own README and its own `bin/install`, and `sancus` may
 call that script as a convenience, exactly as it already calls
 `lefthook install` — convenient, never required.
 
@@ -483,7 +483,7 @@ For each path where a link belongs it does one of five things:
    anything the repo's `.gitignore` covers, or `~/.config/git` alone drowns the
    output in its old object store.
 5. **No TTY, or `--non-interactive`, for case 4, and no resolution declared
-   for that path** → refuse and print, always. `fides` calls this script, and a
+   for that path** → refuse and print, always. `sancus` calls this script, and a
    prompt inside an ansible task hangs the play. This is what keeps
    `--check --diff` truthful, with `bin/doctor` as the probe.
 
@@ -542,7 +542,7 @@ The digest is also what keeps these flags out of a provisioner. A satellite
 entry carrying `--resolve fish=merge --expect-diff fish=<digest>` stops working
 the moment the machine drifts, because the digest no longer matches — which is
 precisely the state where nobody has looked at the diff. So the flags serve a
-one-shot operator-driven run, and `fides` goes on calling
+one-shot operator-driven run, and `sancus` goes on calling
 `bin/install --non-interactive` with no resolution at all, which still refuses.
 
 `bin/doctor` is read-only. It compares each `readlink` against its expected
@@ -568,11 +568,11 @@ every plugin file would otherwise report as unclassified.
 
 Separately, and this one **does** fail: doctor asserts that every plugin
 declared in `configs/fish/fish_plugins` appears in `_fisher_plugins`, reporting
-"declared but not installed: N". Without it, `fides` has no probe for the state
+"declared but not installed: N". Without it, `sancus` has no probe for the state
 that this revision's tracking change makes possible — a correct clone, correct
 links, `bin/doctor` green, and not one of the 82 plugin files on disk. The
 remedy is `fisher update`, which needs network, so doctor reports and the
-operator or the `fides` task runs it.
+operator or the `sancus` task runs it.
 
 The stub assertion is not redundant. Measured: `+validate-config` exits **1**
 when the stub names a target that is missing, but exits **0** when the stub is
@@ -881,7 +881,7 @@ path this repo contains.
   borg, arq, kopia, duplicati or Backblaze is installed. **There is no local
   backup of `~/.config` at all.** The git remote is the entire backup story.
 - `~/.claude` reports `settings.json` as modified — Claude Code rewrites its own
-  tracked file — so the `fides` `safety` role is already unsatisfiable today and
+  tracked file — so the `sancus` `safety` role is already unsatisfiable today and
   `-e force=true` is its normal invocation.
 - Ansible is **not installed** anywhere on this machine, and neither is any
   symlink-farm tool. Every claim about module behaviour is read from source and
@@ -1221,7 +1221,7 @@ the plain form proves the rename was detected without hardcoding either count.
 missing executable bit.
 
 `push -u` rather than `push`: it sets the upstream, without which
-`git log @{u}..` exits 128 and the `fides` `safety` role cannot check this
+`git log @{u}..` exits 128 and the `sancus` `safety` role cannot check this
 satellite at all. Confirm the gitleaks workflow passes on GitHub before going
 further.
 
@@ -1378,7 +1378,7 @@ that walks up from an unlinked tool's config directory finds one.
   where to look.
 - Add a `LICENSE`. `vesta` has one and this repo does not, which is ordinary
   housekeeping for a public repo rather than a decision.
-- The `fides` prerequisite is satisfied.
+- The `sancus` prerequisite is satisfied.
 
 ## Rollback
 
@@ -1420,7 +1420,7 @@ would redo the migration underneath you. Unsetting the upstream (or removing the
 remote outright) stops that. Making it a normal tracking clone again means
 reverting the restructure commits on origin first.
 
-If `fides` has been given a `consus` satellite entry by then, disable it
+If `sancus` has been given a `consus` satellite entry by then, disable it
 before rolling back, or its `./bin/install --non-interactive` will recreate the
 links on the next run.
 
@@ -1437,7 +1437,7 @@ it — provided no checkout still tracks the restructured branch and nothing cal
 
 ## What this repo guarantees a provisioner
 
-`fides` is the intended consumer, but nothing here is specific to it. The
+`sancus` is the intended consumer, but nothing here is specific to it. The
 contract is four things, and they are all independently justified — none exists
 only to serve another repo:
 
@@ -1457,7 +1457,7 @@ only to serve another repo:
   `~/Developer/LRNZ09/consus`, then two symlinks and one stub created by
   `bin/install`.
 
-That last point is where `fides`' current spec diverges most, and the divergence
+That last point is where `sancus`' current spec diverges most, and the divergence
 is deeper than a list of edits. Its architecture describes satellites "cloned to
 their real paths with no symlink layer", a `consus → ~/.config` graft, and
 "adding a newly-configured tool is a gitignore line in `consus`". This design

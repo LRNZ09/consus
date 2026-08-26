@@ -181,7 +181,7 @@ they are collected here so a reviewer can see them at once.
    false. Run from outside any repo it exits 128, which with `set -eu` and
    `>/dev/null` kills the script silently *after* the links are made. Both are
    fixed by running it in a subshell that cds to the repo, and by reporting the
-   failure. This matters most for `fides`, which will not have cd'd anywhere.
+   failure. This matters most for `sancus`, which will not have cd'd anywhere.
 3. **`bin/doctor` must strip `@pin` on both sides of the declared-vs-installed
    check.** Task 7 pins `jhillyerd/plugin-git@v0.4`, while fisher's
    `_fisher_plugins` records the plugin without a pin until `fisher update`
@@ -526,7 +526,7 @@ ghostty +validate-config >/dev/null 2>&1
 
 `viewerCanAdminister` is what the rename in Task 3 needs. `ghostty
 +validate-config` is measured to exit promptly with no window in a non-TTY
-shell, which matters because `bin/doctor` calls it and `fides` calls
+shell, which matters because `bin/doctor` calls it and `sancus` calls
 `bin/doctor`.
 
 - [ ] **Step 8: No commit**
@@ -2435,7 +2435,7 @@ test -z "$(git status --porcelain)"
 Link integrity is the one invariant git cannot express: the repo can be pristine
 while `~/.config` points somewhere else, and for git and fish a severed link is
 completely silent. That is what makes this script load-bearing rather than a
-convenience — and what makes it the probe half of `fides`' probe/apply pattern.
+convenience — and what makes it the probe half of `sancus`' probe/apply pattern.
 
 **Files:**
 
@@ -3017,7 +3017,7 @@ than observations, because two of them pass by *exiting non-zero*.
 - Consumes: `BASELINE_COMMITS` from the state file, everything Tasks 4–10
   produced, and `ci_green` from Task 0.
 - Produces: a pushed `main` **with an upstream**. Without `push -u`,
-  `git log @{u}..` exits 128 and no caller — including `fides` and Task 14 — can
+  `git log @{u}..` exits 128 and no caller — including `sancus` and Task 14 — can
   tell whether the satellite is ahead.
 
 - [ ] **Step 1: Run the gate**
@@ -3469,7 +3469,7 @@ one.
 **Interfaces:**
 
 - Consumes: a green Task 14.
-- Produces: the satisfied `fides` prerequisite.
+- Produces: the satisfied `sancus` prerequisite.
 
 - [ ] **Step 1: Add a LICENSE**
 
@@ -3599,12 +3599,12 @@ untracked tool under `~/.config`, it is the only copy that exists.
 The state file `~/Backups/consus-migration.env` is worth keeping until the
 backups are gone, because the rollback section reads `BK` and `ARCHIVE` from it.
 
-- [ ] **Step 7: Hand off to `fides`**
+- [ ] **Step 7: Hand off to `sancus`**
 
 The prerequisite is now satisfied: a plain clone at a real path, with an
 upstream, an idempotent `bin/install` that refuses without a TTY unless the
-decision was declared, and a read-only `bin/doctor` probe. The `fides` spec
-(`docs/superpowers/specs/2026-08-20-fides-design.md` in `LRNZ09/fides`) still
+decision was declared, and a read-only `bin/doctor` probe. The `sancus` spec
+(`docs/superpowers/specs/2026-08-20-sancus-design.md` in `LRNZ09/sancus`) still
 describes the superseded shape — a `consus → ~/.config` graft, satellites
 "cloned to their real paths with no symlink layer", and "adding a
 newly-configured tool is a gitignore line". All three were replaced. Those
@@ -3613,7 +3613,7 @@ provisioner", not patching**: eight bullet edits applied to an architecture
 section describing the old shape would leave that document contradicting itself.
 That rewrite is its own piece of work, not a step here.
 
-One thing to carry into it: `fides` must call `bin/install --non-interactive`
+One thing to carry into it: `sancus` must call `bin/install --non-interactive`
 with **no** `--resolve`. A satellite entry that declared a resolution would be
 deciding on drift nobody looked at — and if it declared `merge`, the
 `--expect-diff` digest it carried would go stale on the first drift and refuse
@@ -3675,7 +3675,7 @@ that now contains the restructure — so it reports itself behind, and a
 (or removing the remote outright) stops that. Making it a normal tracking clone
 again means reverting the restructure commits on origin first.
 
-If `fides` has been given a `consus` satellite entry by then, disable it before
+If `sancus` has been given a `consus` satellite entry by then, disable it before
 rolling back, or its `./bin/install --non-interactive` will recreate the links
 on the next run.
 
@@ -3689,7 +3689,7 @@ tar xzf "$ARCHIVE" -C ~ .config/git .config/fish
 
 ## What this plan does not do
 
-- It does not rewrite the `fides` spec. Task 15 records what needs rewriting and
+- It does not rewrite the `sancus` spec. Task 15 records what needs rewriting and
   why patching it would be worse.
 - It does not delete anything, ever — including the backups it creates.
 - It does not change `~/.gnupg/gpg-agent.conf`. Unattended signing already works
