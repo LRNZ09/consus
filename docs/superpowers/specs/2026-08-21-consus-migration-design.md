@@ -829,9 +829,12 @@ path this repo contains.
   `halostatue/fish-macos` and `fish-utils-core` publish moving ladders
   (`v7`/`v7.3`/`v7.3.0`, `v3`/`v3.3`/`v3.3.0`); `2m/fish-history-merge` has no
   tags at all and no commit since 2020-11-21.
-- `credential.helper` accepts a bare `git-credential-manager`, which resolves
-  through `PATH` to `/usr/local/bin/git-credential-manager` here. The absolute
-  path in the tracked config is therefore unnecessary as well as unportable.
+- `credential.helper` prepends `git-credential-` to any value that is neither an
+  absolute path nor a `!`-prefixed command, so the portable spelling is the bare
+  `manager`, which resolves through `PATH` to
+  `/usr/local/bin/git-credential-manager` here. The tracked config carries an
+  absolute path anyway — see the portability table below for why that row no
+  longer holds.
 - Ghostty ignores platform-inapplicable keys silently: `gtk-single-instance`,
   `gtk-titlebar` and `linux-cgroup` on macOS produce no diagnostics and exit 0,
   so the `macos-*` keys are inert on Linux rather than errors.
@@ -948,7 +951,7 @@ captures anything:
 
 | File | Change | Why |
 | --- | --- | --- |
-| `configs/git/config` | `helper = manager` | drops the absolute `/usr/local/bin/` path. Git prepends `git-credential-` to any helper name that is neither an absolute path nor a `!`-prefixed command, so the bare `manager` is what resolves via `PATH` to `/usr/local/bin/git-credential-manager` — the same portability argument the file's own `!gh` comment already makes. Spelled out in full, git looks for `git-credential-git-credential-manager` and says nothing until a push needs a credential |
+| `configs/git/config` | `helper = manager` — **later reversed, see below** | dropped the absolute `/usr/local/bin/` path. Git prepends `git-credential-` to any helper name that is neither an absolute path nor a `!`-prefixed command, so the bare `manager` is what resolves via `PATH` to `/usr/local/bin/git-credential-manager` — the same portability argument the file's own `!gh` comment already makes. Spelled out in full, git looks for `git-credential-git-credential-manager` and says nothing until a push needs a credential |
 | `configs/fish/config.fish` | `$HOME/.local/bin` | removes a hardcoded `/Users/lorenzo` from a public repo — the same objection this document uses to reject outward symlinks |
 | `configs/fish/conf.d/proto.fish` | wrap in `if type -q proto` | a machine without proto currently gets a hard error at startup |
 | `configs/fish/conf.d/rustup.fish` | wrap in `test -f "$HOME/.cargo/env.fish"` | same, for Rust |
@@ -957,6 +960,18 @@ captures anything:
 Measured after all five: `abbr | count` 169, `functions | count` 108,
 `ANDROID_HOME` and `JAVA_HOME` still set, `.local/bin` still on `PATH`, proto
 still active. Behaviour on this machine is unchanged.
+
+**The credential helper — reversed, not wrong.** The first row's edit was
+applied and later undone. `[credential]` now carries an empty `helper` followed
+by the absolute `/usr/local/share/gcm-core/git-credential-manager`, which is
+where the GCM package installs the binary and what
+`git-credential-manager configure` writes. The reasoning above about how git
+resolves a helper name still holds; what changed is the choice, not the
+measurement. That path is machine-specific, so this is the one place the tracked
+config knowingly steps outside the portability contract — a machine that
+installs GCM elsewhere, or not at all, has to override `credential.helper` in
+`config-local`. The empty `helper` ahead of it resets anything inherited, the
+same pattern the `github.com` section uses.
 
 `core.editor = code --wait` stays in the tracked config as the portable
 default —

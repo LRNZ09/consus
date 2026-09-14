@@ -803,6 +803,13 @@ section further down. Spelling it out in full sends git looking for
 `git-credential-git-credential-manager`, and nothing says so until a push needs
 a credential.
 
+This step ran as written, and was reversed afterwards. `[credential]` now holds
+an empty `helper` followed by the absolute
+`/usr/local/share/gcm-core/git-credential-manager` — the GCM package's own
+install location, and what `git-credential-manager configure` writes. The two
+blocks above are left as the record of what this task did; the design
+document's portability table carries the current state.
+
 - [ ] **Step 3: Assert the helper still resolves**
 
 ```sh
@@ -810,6 +817,15 @@ test "$(git config --get credential.helper)" = manager
 command -v git-credential-manager >/dev/null
 git credential-manager --version >/dev/null   # the name git actually invokes
 ```
+
+Against the config as it stands now, the first line reads:
+
+```sh
+test "$(git config --get credential.helper)" \
+	= /usr/local/share/gcm-core/git-credential-manager
+```
+
+The other two are unchanged — both spellings reach the same binary.
 
 - [ ] **Step 4: Commit the documents and the config edit**
 

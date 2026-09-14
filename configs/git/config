@@ -88,7 +88,8 @@
 # Credentials and host rewrites
 [credential]
 	gitLabAuthModes = pat
-	helper = manager
+	helper =
+	helper = /usr/local/share/gcm-core/git-credential-manager
 	# credentialStore is OS-specific — see config-local
 
 # GitHub HTTPS auth via gh's token. `!gh` (not an absolute path) keeps this
@@ -101,9 +102,6 @@
 [credential "https://gist.github.com"]
 	helper =
 	helper = !gh auth git-credential
-
-[credential "https://dev.azure.com"]
-	useHttpPath = true
 
 [credential "https://bitbucket.org"]
 	provider = bitbucket
