@@ -1,0 +1,16 @@
+{
+  // The git config files carry no extension, so nothing tells the editor what
+  // they are and a prose formatter will happily reflow one — with formatOnSave
+  // and autoSave onFocusChange, silently. That is what flattened the tabs,
+  // split the comment blocks and turned the addresses into <autolinks> in
+  // configs/git/config. Naming the language keeps it from recurring.
+  //
+  // Indentation is not set here: a hard tab everywhere, with spaces only where
+  // one is forbidden, is a preference that belongs in the user settings rather
+  // than in a repo every machine clones.
+  "files.associations": {
+    "**/configs/git/config": "properties",
+    "**/configs/git/config-*": "properties",
+    "**/configs/git/ignore": "ignore"
+  }
+}
