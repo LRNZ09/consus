@@ -706,8 +706,9 @@ test -z "$(git status --porcelain)"
 ### Task 4: Phase 2 — correct `conf.d/proto.fish`
 
 Two claims in this tracked file are wrong. The NDJSON wart it calls unfixable is
-fixable, and "brew is the install source" became unambiguously true only in
-Task 1.
+fixable — on 0.58.2, which is the proto that produced it; 0.62.2 does not emit
+it at all, verified 2026-09-22 with `AI_AGENT` set. And "brew is the install
+source" became unambiguously true only in Task 1.
 
 **Files:**
 
@@ -718,7 +719,7 @@ Task 1.
 - Consumes: Task 1's removal of the shadowing binary.
 - Produces: a fish startup with zero stderr output in agent environments.
 
-- [ ] **Step 1: Reproduce the wart, so the fix is measured and not assumed**
+- [ ] **Step 1: Try to reproduce the wart — finding nothing is a valid result**
 
 ```sh
 . ~/Backups/proto-consus.env
@@ -736,10 +737,16 @@ test ! -s "$SP/ndjson-after.txt" ||
 if [ -s "$SP/ndjson-before.txt" ]; then
 	echo "reproduced: $(wc -l < "$SP/ndjson-before.txt") lines without PROTO_REPORTER, 0 with it"
 else
-	echo "NOTE: no NDJSON here — proto only emits it in an agent environment."
-	echo "      The fix is still correct; this shell just cannot demonstrate it."
+	echo "NOTE: no NDJSON here, which is the expected result on 0.62.2 — it"
+	echo "      emits none even with AI_AGENT set. Nothing to reproduce."
 fi
 ```
+
+An empty `ndjson-before.txt` does not fail this step and is the likely outcome:
+the wart was proto 0.58.2's, and Task 1 removes that copy. Verified 2026-09-22
+with `AI_AGENT` set against 0.62.2 — no output, exit 0, `PROTO_REPORTER` unset.
+The setting the next step writes is insurance against a machine that runs an
+older proto again, so the step stands either way.
 
 - [ ] **Step 2: Rewrite the file**
 
@@ -759,13 +766,15 @@ cat > configs/fish/conf.d/proto.fish <<'EOF'
 # and PROTO_HOME is deliberately not set: proto's own default is the store, and
 # setting it here would make it exist only inside fish.
 #
-# PROTO_REPORTER is load-bearing, not cosmetic. In agent environments proto
-# emits NDJSON, which `source` cannot parse — roughly 20 lines of errors per
-# shell start. It has to be `set -gx` rather than a one-shot prefix: activation
-# re-runs through a fish hook whose body shells out to
+# PROTO_REPORTER is kept as insurance, not as an active fix here. proto 0.58.2
+# emitted NDJSON in agent environments, which `source` could not parse,
+# producing errors on every shell start. proto 0.62.2 does not — verified
+# against both binaries on 2026-09-22 with AI_AGENT set. The setting stays for
+# a machine that ends up running an older proto again, not because this one
+# needs it. It still has to be `set -gx` rather than a one-shot prefix:
+# activation re-runs through a fish hook whose body shells out to
 # `proto activate fish --export`, and only an exported variable reaches that
-# inner call. Measured — `proto activate fish -r text` does not work, because
-# the flag never propagates.
+# inner call.
 if type -q proto
     set -gx PROTO_REPORTER text
     proto activate fish | source
@@ -1138,13 +1147,12 @@ trap 'rm -f "$present" "$classified" "$unclassified" "$pins"' EXIT
 - [ ] **Step 2: Add `check_file_link`, beside `check_link`**
 
 ```sh
-# check_file_link <label> <machine-file> <repo-file> — the file analogue of
+# check_file_link <machine-file> <repo-file> — the file analogue of
 # check_link. proto's record is a single file at proto's own path, which is not
 # under $config_home: proto never reads XDG_CONFIG_HOME.
 check_file_link() {
-	f_label="$1"
-	f_path="$2"
-	f_target="$3"
+	f_path="$1"
+	f_target="$2"
 	if [ ! -L "$f_path" ]; then
 		echo "✖ $f_path is not a symlink (expected -> $f_target)" >&2
 		return 1
@@ -1178,15 +1186,15 @@ elif [ -n "${XDG_DATA_HOME:-}" ]; then
 else
 	proto_store="$HOME/.proto"
 fi
-proto_link_ok=0
-if check_file_link proto "$proto_store/.prototools" "$record/proto/.prototools"; then
+if check_file_link "$proto_store/.prototools" "$record/proto/.prototools"; then
 	proto_link_ok=1
 else
 	failed=1
 fi
 ```
 
-and declare `proto_link_ok=0` beside `fish_link_ok=0` at line 17.
+and declare `proto_link_ok=0` beside `fish_link_ok=0` at line 17 — there only,
+not here as well, or the initialisation is dead on arrival.
 
 - [ ] **Step 4: Add the pin check, before the review queue**
 

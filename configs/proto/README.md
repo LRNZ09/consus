@@ -21,15 +21,14 @@ alike, and with no version argument the removal is unconditional. An uninstall
 run inside one project can silently edit an unrelated project's `.prototools`
 two directories up. With `pin-latest = "global"` set, the follow-up
 `proto install` then resolves *latest* and writes that back as the new pin. That
-is how a version sweep happens without anyone choosing one. To reinstall at the
-pinned version: uninstall, re-pin, then install.
+is how a version sweep happens without anyone choosing one.
 
 **Do not unify the plugin locator styles.** `github://owner/repo` resolves
 release *assets*, so it cannot address a plugin published as a plain file on a
 branch, which can only be named by raw URL. Tidying a raw URL into the
 `github://` form silently stops it resolving. No locators are configured today —
-proto 0.62 made them unnecessary for community tools — but the trap is waiting
-for whoever adds the next one.
+proto 0.62 resolves zig without one, which is the only tool that was measured —
+but the trap is waiting for whoever adds the next one.
 
 **`--to global` follows `$PROTO_HOME`, not a literal path.** proto's own
 `pin --help` says `~/.proto/.prototools` and is wrong whenever the variable is

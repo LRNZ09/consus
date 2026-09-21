@@ -29,9 +29,9 @@ here — written by `bin/install`.
   fisher or a tool generated is ignored on purpose — `fish_plugins` is the
   record, and those 82 plugin files are its build output.
 - **configs/ghostty** — four settings, plus an optional per-machine include.
-- **configs/proto** — the global record, `.prototools`, nine pins covering
-  every toolchain proto manages here. The 2.3 GB store itself stays outside
-  the repo, at `~/.proto`.
+- **configs/proto** — the global record, `.prototools`, nine pins — every
+  toolchain this record owns. The 2.3 GB store itself stays outside the repo,
+  at `~/.proto`.
 
 Deliberately not managed: **zed**, whose settings-sync extensions are in flight
 and would compete with anything versioned here; **opencode**, which has no
@@ -42,7 +42,7 @@ binary installed anywhere on this machine; **gh**, whose entire payload is
 ## A fresh machine
 
 ```sh
-brew install lefthook gitleaks proto
+brew install lefthook gitleaks proto jq
 git clone https://github.com/LRNZ09/consus.git ~/Developer/LRNZ09/consus
 cd ~/Developer/LRNZ09/consus
 ./bin/install            # the three links, the ghostty include, lefthook, chmod 700
@@ -70,8 +70,11 @@ Finally:
 ```
 
 `bin/install` never deletes anything. Anything in its way is *moved* into
-`~/Backups/consus-install-<timestamp>/`, keeping its path relative to the config
-root, so undoing it is a move back. Re-running it is a no-op. The run is
+`~/Backups/consus-install-<timestamp>/`, so undoing it is a move back. For
+`fish` and `git` the slot inside that directory keeps the path relative to the
+config root. proto's does not: its slot is `proto/.prototools`, and it restores
+to `$PROTO_HOME/.prototools` — by default `~/.proto/.prototools` — which is not
+under the config root at all. Re-running it is a no-op. The run is
 all-or-nothing: every path is classified and every decision settled before
 anything moves. A real directory or file in the way needs a decision, which can
 be typed at the prompt or declared with

@@ -1,6 +1,10 @@
 #!/bin/sh
-# consus/bin/doctor — read-only. Exits 0 when this machine matches the record,
-# non-zero when it does not, and touches nothing either way.
+# consus/bin/doctor — a report, never a repair. Exits 0 when this machine
+# matches the record and non-zero when it does not, and changes neither the
+# record nor the links either way. The link checks and the proto pin check read
+# files and nothing else. The one side effect is the fish probe: `fish -c`
+# sources conf.d/proto.fish, which runs `proto activate`, and that materialises
+# the proto store directory when it is missing.
 #
 # Link integrity is the one invariant git cannot express: the repo can be
 # pristine while $XDG_CONFIG_HOME points somewhere else, and for git and fish a
@@ -43,13 +47,12 @@ check_link() {
 	echo "✓ link       $c_path -> $c_target"
 }
 
-# check_file_link <label> <machine-file> <repo-file> — the file analogue of
+# check_file_link <machine-file> <repo-file> — the file analogue of
 # check_link. proto's record is a single file at proto's own path, which is not
 # under $config_home: proto never reads XDG_CONFIG_HOME.
 check_file_link() {
-	f_label="$1"
-	f_path="$2"
-	f_target="$3"
+	f_path="$1"
+	f_target="$2"
 	if [ ! -L "$f_path" ]; then
 		echo "✖ $f_path is not a symlink (expected -> $f_target)" >&2
 		return 1
@@ -80,8 +83,7 @@ elif [ -n "${XDG_DATA_HOME:-}" ]; then
 else
 	proto_store="$HOME/.proto"
 fi
-proto_link_ok=0
-if check_file_link proto "$proto_store/.prototools" "$record/proto/.prototools"; then
+if check_file_link "$proto_store/.prototools" "$record/proto/.prototools"; then
 	proto_link_ok=1
 else
 	failed=1

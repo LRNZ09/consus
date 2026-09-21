@@ -264,7 +264,7 @@ with no edit — but the guard below it must be re-read as an allow-list of one
 rather than a deny-list of git.
 
 `~/.proto` always exists in practice, because any proto invocation creates it.
-`classify_file` still does `mkdir -p` on the parent before linking, so a machine
+`apply_file` still does `mkdir -p` on the parent before linking, so a machine
 where it does not exist yet is handled rather than assumed.
 
 ## bin/doctor
@@ -337,9 +337,12 @@ here rather than carried forward.
 NDJSON "cannot be fixed from here — `proto activate` rejects `--format`, and
 neither `env -u AI_AGENT` nor `PROTO_JSON=false` suppresses it". The working
 spelling is `--reporter` / `PROTO_REPORTER`, which the earlier investigation did
-not try. Measured: `fish -c 'proto activate fish | source'` emits the NDJSON
-parse errors; the same command under `PROTO_REPORTER=text` emits nothing at all
-and exits 0.
+not try. Measured against 0.58.2: `fish -c 'proto activate fish | source'` emits
+the NDJSON parse errors; the same command under `PROTO_REPORTER=text` emits
+nothing at all and exits 0. 0.62.2 does not emit it at all — re-measured
+2026-09-22 with `AI_AGENT` set and `PROTO_REPORTER` unset — so once Task 1 has
+removed the 0.58.2 copy the setting is insurance against a machine that runs an
+older proto again, not a fix for anything this machine still does.
 
 It must be `set -gx` and not a one-shot prefix. Activation re-runs on every `cd`
 through a fish hook, and the hook's body shells out to
@@ -443,10 +446,11 @@ on macOS arm64. Experiments ran against scratch stores under a redirected
 - `proto activate fish` hard-codes nothing — it emits a function that shells out
   to `proto activate fish --export | source`, and only that inner call resolves
   the store. So `conf.d/proto.fish` needs no change for any store location.
-- `PROTO_REPORTER=text` silences the agent-mode NDJSON completely:
-  `PROTO_REPORTER=text fish -c 'proto activate fish | source'` produces no
-  output and exits 0, where the bare command emits parse errors. The `-r text`
-  flag does not propagate to the inner call; only the environment variable does.
+- `PROTO_REPORTER=text` silences the agent-mode NDJSON completely **on
+  0.58.2**: `PROTO_REPORTER=text fish -c 'proto activate fish | source'`
+  produces no output and exits 0, where the bare command emits parse errors. The
+  `-r text` flag does not propagate to the inner call; only the environment
+  variable does. 0.62.2 emits no NDJSON either way — see "Amended 2026-09-22".
 - Shims are byte-identical copies of `proto-shim` with no embedded store path,
   so `shims/` is relocatable. `bin/` is not: its ~40 entries are absolute
   symlinks, 26 of which have no shim to fall back on, so a moved store breaks
@@ -500,6 +504,16 @@ on macOS arm64. Experiments ran against scratch stores under a redirected
 - `~/.config` is 1.1 GB across 1,635 entries today, of which raycast (892 MB)
   and gatsby (187 MB) are caches. A store under it would take it to ~3.4 GB and
   ~66,300 entries, making proto 97% of everything there.
+
+### Amended 2026-09-22
+
+One fact above was measured against both binaries and reads as if it were true
+of proto in general. It is not. Re-measured against 0.62.2 alone, after the
+0.58.2 copy was removed: `AI_AGENT=1 fish -c 'proto activate fish | source'`
+with `PROTO_REPORTER` unset produces no output and exits 0. The agent-mode
+NDJSON belongs to 0.58.2, so `set -gx PROTO_REPORTER text` in
+`conf.d/proto.fish` is kept as insurance against a machine that ends up on an
+older proto, not as a live fix. Nothing else measured on 2026-09-21 changed.
 
 ## What this edits in the 2026-08-21 design
 
@@ -599,7 +613,7 @@ the file is in place. Reinstalling proto 0.58.2 is a `proto install proto
 ## Deliberately out of scope
 
 - **The store's own drift.** Roughly 400 MB of `tools/` is versions nothing
-  pins, four tool directories have no manifest, and the self-managed proto
+  pins, five tool directories have no manifest, and the self-managed proto
   manifest disagrees with its own directory. `auto-clean` has not kept up.
   Recording the pins does not clean the store, and `proto clean` is a separate,
   network-free decision worth making on its own.
