@@ -1579,15 +1579,25 @@ d=$(sed -n 's/.*digest proto=\([0-9a-f]\{12\}\).*/\1/p' "$SP/review.txt" | head 
 test -n "$d" || { echo "FAIL: no proto diff printed"; exit 1; }
 
 # Assert the SHAPE of the diff, not just that one was printed. The record was
-# written from a literal in Task 3, so the only differences from the machine's
-# own file should be the two dropped pins, the dropped plugin block and the
-# lockfile rename. A line mentioning anything else means the machine's pins
-# moved since Task 3 — a `proto pin` from any project, or the pin-latest path —
-# and overwriting would silently discard them.
-grep -E '^[-+]' "$SP/review.txt" | grep -vE 'openjdk|zig|plugins|lockfile|^[-+]{3}|^[-+][[:space:]]*$' \
+# written from a literal in Task 3, so the only machine content that overwrite
+# may discard is the two dropped pins, the dropped plugin block and the old
+# lockfile key. Anything else means the machine's pins moved since Task 3 — a
+# `proto pin` from any project, or the pin-latest path — and overwriting would
+# silently lose them.
+#
+# Only the `-` side is checked, and that is the whole point: a `-` line is
+# machine content at risk, while a `+` line is repo content Task 3 itself
+# wrote and cannot be drift. Checking both sides flags the record's own comment
+# header — measured, it did exactly that and blocked a correct run.
+#
+# The sed scopes this to the proto diff. review.txt can carry fish and git
+# diffs too, and their content has nothing to do with this assertion.
+sed -n '/--- .*\.prototools  vs/,/end of diff/p' "$SP/review.txt" |
+	grep -E '^-' |
+	grep -vE 'openjdk|zig|plugins|lockfile|^-{3}|^-[[:space:]]*$' \
 	> "$SP/unexpected.txt" || true
 test ! -s "$SP/unexpected.txt" || {
-	echo "FAIL: the diff carries changes this plan did not write:"; cat "$SP/unexpected.txt"; exit 1; }
+	echo "FAIL: the machine carries pins this plan did not write:"; cat "$SP/unexpected.txt"; exit 1; }
 
 echo "PROTO_REVIEW_DIGEST=$d" >> ~/Backups/proto-consus.env
 ```
