@@ -398,10 +398,22 @@ about a *new* shell. Task 8 asserts the new shell.
 
 ```sh
 . ~/Backups/proto-consus.env
-PROTO_REPORTER=text /opt/homebrew/bin/proto status 2>&1 | tee "$SP/status-after.txt"
-grep -qi 'error' "$SP/status-after.txt" && { echo "FAIL: status still reports an error"; exit 1; }
-true
+/opt/homebrew/bin/proto status --config-mode global > "$SP/status-after.txt" 2>&1 ||
+	{ echo "FAIL: proto status exited non-zero"; cat "$SP/status-after.txt"; exit 1; }
+grep -q '^Error:' "$SP/status-after.txt" &&
+	{ echo "FAIL: status still reports an error"; cat "$SP/status-after.txt"; exit 1; }
+# The record is read only if the tools it pins are listed.
+grep -q 'bun' "$SP/status-after.txt" ||
+	{ echo "FAIL: status listed no tools — the global record was not read"; exit 1; }
 ```
+
+`--config-mode global` is not optional, and leaving it off is the same trap the
+record's README warns about. Measured before this plan ran: a bare
+`proto status` from the clone defaults to `upwards`, never loads the global
+record, and prints `Error: proto::no_configured_tools` — so the obvious
+assertion fails for a reason that has nothing to do with the thing being tested.
+Matching `^Error:` rather than any occurrence of "error" keeps a tool path or a
+version string containing those letters from tripping it.
 
 If this still fails, stop: the record in Task 3 is written on the assumption
 that a working 0.62.2 is what reads it.
