@@ -24,3 +24,8 @@
 !/configs/fish/conf.d/rustup.fish
 /configs/fish/functions/*
 !/configs/fish/functions/gfu.fish
+
+# proto writes .protolock next to any .prototools it treats as local, so a
+# stray proto run inside this directory drops one here. The record is the
+# pins; the lockfile is inert at global scope and is not tracked.
+/configs/proto/.protolock
