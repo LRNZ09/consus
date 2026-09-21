@@ -274,13 +274,21 @@ to take a base directory so it can name `$HOME/.proto/.prototools` instead of a
 path under `$XDG_CONFIG_HOME`.
 
 The second is the one that earns its place: **declared but not installed**,
-comparing each pin in the record against `tools/<tool>/<version>/` on disk. It
-is the exact analogue of the existing `fish_plugins` check — `.prototools` is to
-`tools/` what `fish_plugins` is to the 82 fisher files — and it is the check
-that would have caught openjdk and zig drifting to uninstalled. It compares
-directories rather than shelling out to proto, which keeps doctor read-only and
-network-free and avoids depending on `proto status`, which exits 0 while
-failing.
+comparing each pin in the record against `installed_versions` in
+`tools/<tool>/manifest.json`. It is the exact analogue of the existing
+`fish_plugins` check — `.prototools` is to `tools/` what `fish_plugins` is to
+the 82 fisher files — and it is the check that would have caught openjdk and zig
+drifting to uninstalled. It reads two files rather than shelling out to proto,
+which keeps doctor read-only and network-free and avoids depending on
+`proto status`, which exits 0 while failing.
+
+It reads the manifest rather than testing for a `tools/<tool>/<version>/`
+directory, and the difference is not cosmetic. Measured after this document's
+first revision: `tools/rust/` contains only manifests, because proto's rust
+support defers to `~/.rustup` — so a directory test reports the installed
+rust 1.97.0 as missing, permanently. The manifest is also the only place a
+*prefix* pin can be resolved: `proto pin node 22` writes `22` while the manifest
+records `22.23.1`.
 
 A third check is advisory: report when `~/.proto/bin/proto` exists, because that
 copy shadows Homebrew's on `PATH` and its reappearance is drift the record does
@@ -477,6 +485,18 @@ on macOS arm64. Experiments ran against scratch stores under a redirected
 - `openjdk` and `zig` are pinned and lock-recorded with `installed_versions:
   []`. The old README's `java -version # Temurin via ~/.proto/shims/java` is
   already false and no `java` shim exists.
+- `tools/<tool>/manifest.json` carries `installed_versions`, and it is the only
+  reliable installed-check. `tools/rust/` holds manifests and **no version
+  directory at all** — rust 1.97.0 is installed, `installed_versions` lists it,
+  and the payload lives in `~/.rustup/toolchains/1.97.0-aarch64-apple-darwin`.
+  A `test -d tools/rust/1.97.0` reports it missing forever. Verified against the
+  record: a manifest-based check passes 8 of 8 concrete versions
+  (`npm = "bundled"` is not one) and fails on exactly `openjdk` and `zig`
+  against the record it replaces.
+- A pin may be a version **prefix**. `proto pin node 22` writes `node = "22"`
+  while the manifest records `22.23.1`, so an exact-match lookup reports it
+  missing. Matching on `<pin>.` as a prefix resolves it without letting `2`
+  match `22.23.1`.
 - `~/.config` is 1.1 GB across 1,635 entries today, of which raycast (892 MB)
   and gatsby (187 MB) are caches. A store under it would take it to ~3.4 GB and
   ~66,300 entries, making proto 97% of everything there.
@@ -599,7 +619,7 @@ the file is in place. Reinstalling proto 0.58.2 is a `proto install proto
   relocation starts from it rather than rediscovering it.
 - **The declared-but-not-installed check has no fixture yet.** The sandbox
   suites build fish and git trees; a proto fixture needs a fake
-  `tools/<tool>/<version>/` layout, which is cheap but new.
+  `tools/<tool>/manifest.json` per pin, which is cheap but new.
 - **Whether `lockfile = true` should stay at all.** It is inert at global scope
   today. It is kept because it expresses intent and costs nothing, and because
   upstream may honour global lockfiles later. Dropping it is a one-line change.
