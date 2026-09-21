@@ -15,9 +15,10 @@ record="$repo/configs"
 fish_dir="$record/fish"
 failed=0
 fish_link_ok=0
+proto_link_ok=0
 
-present=$(mktemp); classified=$(mktemp); unclassified=$(mktemp)
-trap 'rm -f "$present" "$classified" "$unclassified"' EXIT
+present=$(mktemp); classified=$(mktemp); unclassified=$(mktemp); pins=$(mktemp)
+trap 'rm -f "$present" "$classified" "$unclassified" "$pins"' EXIT
 
 echo "consus doctor"
 echo "  repo:        $repo"
@@ -42,8 +43,49 @@ check_link() {
 	echo "✓ link       $c_path -> $c_target"
 }
 
+# check_file_link <label> <machine-file> <repo-file> — the file analogue of
+# check_link. proto's record is a single file at proto's own path, which is not
+# under $config_home: proto never reads XDG_CONFIG_HOME.
+check_file_link() {
+	f_label="$1"
+	f_path="$2"
+	f_target="$3"
+	if [ ! -L "$f_path" ]; then
+		echo "✖ $f_path is not a symlink (expected -> $f_target)" >&2
+		return 1
+	fi
+	f_current=$(readlink -- "$f_path")
+	if [ "$f_current" != "$f_target" ]; then
+		echo "✖ $f_path -> $f_current (expected -> $f_target)" >&2
+		return 1
+	fi
+	# A link whose target is gone still reads back correctly, so readlink alone
+	# would report a DANGLING link as healthy — and a dangling record is exactly
+	# the state this check exists to catch: proto reads nothing and silently
+	# reverts to its built-in defaults, telemetry included.
+	if [ ! -e "$f_path" ]; then
+		echo "✖ $f_path -> $f_target, but the target does not exist" >&2
+		return 1
+	fi
+	echo "✓ link       $f_path -> $f_target"
+}
+
 check_link git || failed=1
 if check_link fish; then fish_link_ok=1; else failed=1; fi
+
+if [ -n "${PROTO_HOME:-}" ]; then
+	proto_store="$PROTO_HOME"
+elif [ -n "${XDG_DATA_HOME:-}" ]; then
+	proto_store="$XDG_DATA_HOME/proto"
+else
+	proto_store="$HOME/.proto"
+fi
+proto_link_ok=0
+if check_file_link proto "$proto_store/.prototools" "$record/proto/.prototools"; then
+	proto_link_ok=1
+else
+	failed=1
+fi
 
 # --- the ghostty include ----------------------------------------------------
 # The stub assertion is not redundant: +validate-config exits 1 when the stub
@@ -156,6 +198,93 @@ else
 	fi
 fi
 
+
+# --- proto: declared, then installed -----------------------------------------
+# The analogue of the fish plugin check: .prototools is to tools/ what
+# fish_plugins is to the 82 fisher files. Gated on the link, because a record
+# read through a severed link is proto's built-in defaults rather than this
+# repo's, and asserting against those would mean nothing.
+#
+# manifest.json rather than tools/<tool>/<version>/: measured, tools/rust holds
+# only manifests, because proto's rust support defers to ~/.rustup. A directory
+# test would report the installed rust as missing, forever.
+#
+# Never `proto status`: it exits 0 while failing. Never `proto pin`: it reaches
+# the network. This check reads two files and runs no proto at all.
+if [ "$proto_link_ok" -eq 0 ]; then
+	echo "· proto      skipped — $proto_store/.prototools is not the expected link"
+elif ! command -v jq >/dev/null 2>&1; then
+	echo "· proto      jq not installed — skipped the pin check (brew install jq)"
+elif [ ! -f "$record/proto/.prototools" ]; then
+	# Belt and braces. check_file_link already rejects a dangling link, so this
+	# normally cannot fire — it covers the residue, such as a target that exists
+	# but is a directory. It earns its place anyway: without it the awk below is
+	# a simple command under `set -e`, so an unreadable record would abort doctor
+	# at exit 2 with a raw "can't open file", skipping the review queue and the
+	# closing summary, which is not the contract the file header states.
+	echo "✖ $record/proto/.prototools is not a readable file" >&2
+	failed=1
+else
+	# Top-level keys only: in TOML everything before the first table belongs to
+	# the root, and everything after belongs to that table. `exit` is therefore
+	# correct — but it also means a record whose first line is a table yields
+	# nothing, so the count below is what stops "checked nothing" reading as
+	# "everything is fine".
+	# sub(/#.*/) first: TOML allows a trailing comment, and without stripping it
+	# `node = "26.5.0"  # keep` yields the version `26.5.0#keep`, which starts
+	# with a digit, gets looked up, and reports a false "not installed". No
+	# version string contains a #, so removing everything from the first one is
+	# safe here.
+	awk '/^\[/ { exit }
+	     /^[A-Za-z]/ && /=/ { sub(/#.*/, ""); gsub(/["[:space:]]/, "")
+	                          n = index($0, "=")
+	                          if (n > 1 && length($0) > n)
+	                              print substr($0, 1, n - 1), substr($0, n + 1) }' \
+		"$record/proto/.prototools" > "$pins"
+	missing=0
+	checked=0
+	while read -r p_tool p_ver; do
+		[ -n "$p_tool" ] || continue
+		# bundled, latest and every alias resolve at call time; only a concrete
+		# version can be looked for in a manifest.
+		case "$p_ver" in
+		[0-9]*) ;;
+		*) continue ;;
+		esac
+		checked=$((checked + 1))
+		p_manifest="$proto_store/tools/$p_tool/manifest.json"
+		# A pin may be a prefix: `proto pin node 22` writes "22" while the
+		# manifest records "22.23.1". An exact match would call that missing
+		# forever. Matching on "$p_ver." rather than a bare prefix keeps 2 from
+		# matching 22.23.1.
+		if [ ! -f "$p_manifest" ] ||
+			! jq -e --arg v "$p_ver" \
+				'.installed_versions // [] | any(. == $v or startswith($v + "."))' \
+				"$p_manifest" >/dev/null 2>&1; then
+			echo "✖ declared but not installed: $p_tool $p_ver" >&2
+			missing=$((missing + 1))
+		fi
+	done < "$pins"
+	if [ "$checked" -eq 0 ]; then
+		echo "✖ no pins found in configs/proto/.prototools — the record is empty or malformed" >&2
+		failed=1
+	elif [ "$missing" -ne 0 ]; then
+		echo "✖ declared but not installed: $missing — run: proto install --config-mode global (needs network)" >&2
+		failed=1
+	else
+		echo "✓ proto      all $checked pinned versions are installed"
+	fi
+fi
+
+# Advisory, and deliberately OUTSIDE the block above. A self-installed proto in
+# the store shadows Homebrew's, because activation prepends the store's bin. If
+# this report were gated on the link check and on jq, it would go quiet in
+# exactly the situations where drift is most likely. Never assert a version
+# here: which binary answers depends on which shell ran this script.
+if [ -e "$proto_store/bin/proto" ]; then
+	echo "· proto      $proto_store/bin/proto exists and shadows Homebrew's on PATH."
+	echo "·            brew upgrade proto cannot reach it. Advisory — this never fails."
+fi
 
 # --- the review queue -------------------------------------------------------
 # Advisory, like the unclassified report, and deliberately not a failure. The
