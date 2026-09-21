@@ -5,9 +5,14 @@ one directory per tool, and each tool finds it at its own default path, which is
 a symlink into this repo:
 
 ```text
-~/.config/git   →  <this clone>/configs/git
-~/.config/fish  →  <this clone>/configs/fish
+~/.config/git          →  <this clone>/configs/git
+~/.config/fish         →  <this clone>/configs/fish
+~/.proto/.prototools   →  <this clone>/configs/proto/.prototools
 ```
+
+proto is the one tool whose path is not under `~/.config`, because proto never
+reads `XDG_CONFIG_HOME`, and the one whose link is on a file rather than a
+directory, because the 2.3 GB store is the directory.
 
 Ghostty is the exception. Its winning config path on macOS is
 `~/Library/Application Support/com.mitchellh.ghostty/config`, which no symlink
@@ -24,6 +29,9 @@ here — written by `bin/install`.
   fisher or a tool generated is ignored on purpose — `fish_plugins` is the
   record, and those 82 plugin files are its build output.
 - **configs/ghostty** — four settings, plus an optional per-machine include.
+- **configs/proto** — the global record, `.prototools`, nine pins covering
+  every toolchain proto manages here. The 2.3 GB store itself stays outside
+  the repo, at `~/.proto`.
 
 Deliberately not managed: **zed**, whose settings-sync extensions are in flight
 and would compete with anything versioned here; **opencode**, which has no
@@ -34,11 +42,16 @@ binary installed anywhere on this machine; **gh**, whose entire payload is
 ## A fresh machine
 
 ```sh
-brew install lefthook gitleaks
+brew install lefthook gitleaks proto
 git clone https://github.com/LRNZ09/consus.git ~/Developer/LRNZ09/consus
 cd ~/Developer/LRNZ09/consus
-./bin/install            # the two links, the ghostty include, lefthook, chmod 700
+./bin/install            # the three links, the ghostty include, lefthook, chmod 700
+proto install --config-mode global    # restores the nine pinned toolchains
 ```
+
+The `--config-mode global` flag is not optional: a bare `proto install`
+defaults to `upwards` mode, never loads the global record at all, and reports
+"nothing to install" while exiting 0.
 
 Then bootstrap fisher. A fresh clone has `fish_plugins` and no fisher at all —
 fisher's own two files are among the ignored ones, so the command that reads the
@@ -62,12 +75,16 @@ root, so undoing it is a move back. Re-running it is a no-op. The run is
 all-or-nothing: every path is classified and every decision settled before
 anything moves. A real directory or file in the way needs a decision, which can
 be typed at the prompt or declared with
-`--resolve <fish|git>=<overwrite|merge|refuse>`; with neither, and no TTY, it
-prints the diff and refuses.
+`--resolve <fish|git|proto>=<overwrite|merge|refuse>`; with neither, and no
+TTY, it prints the diff and refuses.
 
-Each path is named by the tool that owns it — `fish`, `git` — on the command
-line, under `~/.config` and in the backup directory alike. Only the repo side
-carries the `configs/` prefix.
+Each path is named by the tool that owns it — `fish`, `git`, `proto` — on the
+command line and in the backup directory alike; only the repo side carries the
+`configs/` prefix. For `fish` and `git` that name is also the path under
+`~/.config`. `proto` breaks that pattern: it names the path on the command
+line and in the backup directory the same way, but the path it stands for is
+`$PROTO_HOME/.prototools` — by default `~/.proto/.prototools` — not anything
+under `~/.config`.
 
 ## Per-machine settings
 
@@ -83,6 +100,9 @@ carries the `configs/` prefix.
 - **ghostty** — `~/.config/ghostty/local.ghostty`. The repo's config ends with
   an optional include of it, so a machine without one loads nothing and says
   nothing.
+- **proto** — per-project pins belong in that project's own `.prototools`;
+  the record here, `configs/proto/.prototools`, is only the global fallback
+  proto uses when no project pin applies.
 
 ## The hazard of a linked directory
 
@@ -96,6 +116,12 @@ regenerating its own completions, or OrbStack running again.
 `bin/doctor` exists because link integrity is the one invariant git cannot
 express: this repo can be pristine while `~/.config` points somewhere else, and
 for git and fish a severed link is completely silent.
+
+proto's link is on a file, not a directory, so no `rm -rf` can empty a
+directory through it — the 2.3 GB store it points into is unaffected. But a
+severed link is silent in its own way: proto reports zero config files and
+reverts to built-in defaults, including turning telemetry back on, with
+nothing to warn you. That is what `bin/doctor` catches.
 
 ## Secret scanning
 

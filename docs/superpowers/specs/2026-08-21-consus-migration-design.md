@@ -9,6 +9,9 @@ see "Options considered" and "Verified facts".
 run until `consus` exists and is pushed. That spec
 (`docs/superpowers/specs/2026-08-20-sancus-design.md` in `LRNZ09/sancus`) still
 describes a superseded layout — see "What this repo guarantees a provisioner".
+**Amended-by:** `docs/superpowers/specs/2026-09-21-proto-into-consus-design.md`,
+which ends the `~/.proto` exception recorded under "Deliberately out of scope"
+below.
 
 ## What this does
 
@@ -183,13 +186,15 @@ twice. The deny-by-default gitignore is what makes it possible — it renders
 
 ## Per-tool activation
 
-Measured against git 2.55.0, fish 4.8.0, ghostty 1.3.1 and gh 2.96.0.
+Measured against git 2.55.0, fish 4.8.0, ghostty 1.3.1, gh 2.96.0 and
+proto 0.62.2.
 
 | Tool | Default path | Mechanism | Liveness signal |
 | --- | --- | --- | --- |
 | `git` | `~/.config/git` | directory link | `bin/doctor` `readlink` only |
 | `fish` | `~/.config/fish` | directory link | `bin/doctor` `readlink` only |
 | `ghostty` | App Support; stub in `~/.config/ghostty` | 1-line `config-file` include | `ghostty +validate-config` exits 1 |
+| `proto` | `$PROTO_HOME/.prototools`, default `~/.proto` | file link | `bin/doctor` `readlink` only |
 | `zed` | — | **dropped** | settings-sync extensions are in flight |
 | `opencode` | — | **dropped** | no binary installed anywhere |
 | `gh` | — | **dropped** | 2-line payload; file link viable but not worth it |
@@ -380,9 +385,11 @@ a **file** link on it survived `gh config set` with the write reaching the
 target, and `hosts.yml` is created next to the link in `~/.config/gh`, never in
 the repo. So a single file link would work with the OAuth token staying outside
 the repo. The entire payload is `git_protocol: https` plus one alias, so it
-stays two lines on the restore checklist instead. (For the record, gh has no
-include directive: an `include:` key in `config.yml` is accepted and stored —
-`gh config get include` returns it — but never read, with no error.)
+stays two lines on the restore checklist instead. That file link is exactly
+the mechanism proto's own record now uses, so gh's disqualification rests on
+payload size alone. (For the record, gh has no include directive: an
+`include:` key in `config.yml` is accepted and stored — `gh config get
+include` returns it — but never read, with no error.)
 
 **micro.** Only whole-directory `-config-dir` and `MICRO_CONFIG_HOME`, neither
 an include; `micro -options` (148 lines) has no include key. The tracked payload
@@ -687,6 +694,9 @@ assumed:
 - `git clean -fdx` run from inside a linked directory now reaches the repo,
   because `git rev-parse --show-toplevel` resolves there. Same blast radius.
 - Whole-directory replacement severs the link without touching the target.
+- A severed `proto` link is silent and reverts proto to built-in defaults; the
+  store is not under the repo, so no recursive removal inside it can reach the
+  toolchains.
 
 None of these can reach a credential, because no credential store is under any
 path this repo contains.
@@ -1492,7 +1502,9 @@ credentials, which invites someone to allow-list them later.
 
 ## Deliberately out of scope
 
-- `~/.claude` and `~/.proto` keep their own repos at their real paths.
+- `~/.claude` keeps its own repo at its real path. `~/.proto` does not: see
+  `docs/superpowers/specs/2026-09-21-proto-into-consus-design.md` for where its
+  record went and why.
 - `~/.agents` stays with the `dotagents` CLI.
 - `zed/` is excluded. Settings-sync extensions for it are in flight, the same
   way VS Code syncs itself, so versioning its config here would compete with the
