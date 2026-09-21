@@ -78,7 +78,7 @@ Every task's requirements implicitly include this section.
 
   ```sh
   export GH_PROMPT_DISABLED=1 GH_NO_UPDATE_NOTIFIER=1 GIT_EDITOR=false
-  export PROTO_YES=1 PROTO_REPORTER=text
+  export PROTO_YES=true PROTO_REPORTER=text
   ```
 
   `PROTO_YES` is proto's own `--yes`, and it belongs here for the same reason
@@ -86,6 +86,11 @@ Every task's requirements implicitly include this section.
   `auto-install = true` a resolution can offer to install. `PROTO_REPORTER=text`
   keeps proto's agent-mode NDJSON out of every captured output in this plan, not
   only out of fish.
+
+  **`true`, not `1`.** Measured: `PROTO_YES=1` makes *every* proto invocation
+  fail with `error: invalid value '1' for '--yes' [possible values: true,
+  false]`. proto parses these as booleans by name, so the shell convention of 1
+  for true silently converts a convenience into a total outage.
 - **Every destructive step guards its variables.** A step that moves or removes
   anything opens with:
 
@@ -238,6 +243,7 @@ cat > ~/Backups/proto-consus.env <<EOF
 # breaks every later assertion against BK.
 
 export GH_PROMPT_DISABLED=1 GH_NO_UPDATE_NOTIFIER=1 GIT_EDITOR=false
+export PROTO_YES=true PROTO_REPORTER=text
 
 CLONE="$HOME/Developer/LRNZ09/consus"
 SP="$HOME/Backups/proto-consus-sandbox"
