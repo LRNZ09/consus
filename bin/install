@@ -3,11 +3,16 @@
 #
 #   $XDG_CONFIG_HOME/fish                    -> <repo>/configs/fish  (symlink)
 #   $XDG_CONFIG_HOME/ghostty/config.ghostty                  (one-line include)
+#   $PROTO_HOME/.prototools    -> <repo>/configs/proto/.prototools  (file link)
 #   $XDG_CONFIG_HOME/git                     -> <repo>/configs/git   (symlink, last)
 #
 # The record lives under <repo>/configs/; the name on each side of the arrow is
 # the tool's own, so a path names the same thing to the CLI, to $XDG_CONFIG_HOME
 # and to the backup directory, and only the repo side carries the prefix.
+#
+# proto is the one path here that is not under $XDG_CONFIG_HOME, because proto
+# never reads that variable, and the one whose link is on a file rather than a
+# directory, because that directory is a 2.3 GB store.
 #
 # Nothing is ever deleted: every displaced path is MOVED into a timestamped
 # backup directory, and every move reverses by moving it back. Re-running is a
@@ -30,20 +35,20 @@
 # stale the moment the machine drifts, and a stale digest refuses.
 #
 # Usage: bin/install [--non-interactive] [--backup-dir DIR]
-#                    [--resolve <fish|git>=<overwrite|merge|refuse>]...
-#                    [--expect-diff <fish|git>=<digest>]...
+#                    [--resolve <fish|git|proto>=<overwrite|merge|refuse>]...
+#                    [--expect-diff <fish|git|proto>=<digest>]...
 # Why links rather than tool-native includes: the design document under docs/.
 set -eu
 
-# The only two paths that can ever need a decision. The ghostty stub is
+# The only three paths that can ever need a decision. The ghostty stub is
 # install's own output rather than machine content, so it is backed up and
 # rewritten without asking.
-KNOWN_PATHS='fish git'
+KNOWN_PATHS='fish git proto'
 
 usage() {
 	echo "usage: bin/install [--non-interactive] [--backup-dir DIR]" >&2
-	echo "                   [--resolve <fish|git>=<overwrite|merge|refuse>]..." >&2
-	echo "                   [--expect-diff <fish|git>=<digest>]..." >&2
+	echo "                   [--resolve <fish|git|proto>=<overwrite|merge|refuse>]..." >&2
+	echo "                   [--expect-diff <fish|git|proto>=<digest>]..." >&2
 	exit 2
 }
 
@@ -96,7 +101,7 @@ add_resolution() {
 	# repository git status never reports. Only fish has merge semantics.
 	if [ "$a_action" = merge ] && [ "$a_rel" != fish ]; then
 		echo "install: --resolve $a_rel=merge: merge is only defined for fish" >&2
-		echo "  the git path takes overwrite or refuse" >&2
+		echo "  the git and proto paths take overwrite or refuse" >&2
 		usage
 	fi
 	a_prev=$(already_keyed "$resolutions" "$a_rel")
@@ -157,6 +162,21 @@ unset CDPATH
 repo=$(cd -- "$(dirname -- "$0")/.." && pwd -P)
 config_home="${XDG_CONFIG_HOME:-$HOME/.config}"
 record="$repo/configs"
+
+# proto's store, in proto's own precedence order. proto never reads
+# XDG_CONFIG_HOME, so its record is the one path here that is not under
+# $config_home — and it is a single file, because PROTO_HOME relocates the
+# whole 2.3 GB store and cannot separate the record from it.
+if [ -n "${PROTO_HOME:-}" ]; then
+	proto_store="$PROTO_HOME"
+elif [ -n "${XDG_DATA_HOME:-}" ]; then
+	proto_store="$XDG_DATA_HOME/proto"
+else
+	proto_store="$HOME/.proto"
+fi
+proto_path="$proto_store/.prototools"
+proto_target="$record/proto/.prototools"
+
 [ -n "$backup_dir" ] || backup_dir="$HOME/Backups/consus-install-$(date +%Y%m%dT%H%M%S)"
 
 # lefthook backs the repo's own secret scanning. Checked up front so a missing
@@ -233,11 +253,47 @@ show_diff() {
 	echo "  --- end of diff, digest $d_rel=$diff_digest ---"
 }
 
+# show_file_diff <rel> <machine-file> — the file analogue of show_diff. Sets
+# diff_digest to a digest of the listing printed below, so the digest commits to
+# what a reader actually reviewed. The two header lines of `diff -u` are dropped
+# because they carry absolute paths, which would make the digest differ between
+# clones of the same content.
+show_file_diff() {
+	f_rel="$1"
+	f_m="$2"
+
+	: > "$d_listing"
+	if cmp -s -- "$f_m" "$proto_target"; then
+		echo "  identical" >> "$d_listing"
+	else
+		# Machine first, repo second, so a `-` line is what goes away and a `+`
+		# line is what arrives when the repo wins. Reversed, a reviewer reads
+		# the consequence of overwrite exactly backwards.
+		diff -u -- "$f_m" "$proto_target" | tail -n +3 >> "$d_listing" || true
+	fi
+	# A diff that produced nothing printable — a binary difference, whose whole
+	# report is the single line `tail -n +3` just discarded — would otherwise
+	# leave an empty listing and hand back the digest of an empty file, making
+	# every such difference look identical to every other. Fall back to content
+	# hashes, which the digest then commits to.
+	if [ ! -s "$d_listing" ] && ! cmp -s -- "$f_m" "$proto_target"; then
+		printf '  differ, not as text\n    machine %s  repo %s\n' \
+			"$(shasum -a 256 -- "$f_m" | cut -c1-12)" \
+			"$(shasum -a 256 -- "$proto_target" | cut -c1-12)" >> "$d_listing"
+	fi
+
+	diff_digest=$(shasum -a 256 < "$d_listing" | cut -c1-12)
+
+	echo "  --- $f_m  vs  $proto_target   (- machine, + repo) ---"
+	cat -- "$d_listing"
+	echo "  --- end of diff, digest $f_rel=$diff_digest ---"
+}
+
 # ---------------------------------------------------------------------------
 # Plan. Classify every path and settle every decision before anything moves.
 # ---------------------------------------------------------------------------
-plan_fish=''; plan_git=''; plan_stub=''
-slot_fish=0; slot_git=0; slot_stub=0
+plan_fish=''; plan_git=''; plan_stub=''; plan_proto=''
+slot_fish=0; slot_git=0; slot_stub=0; slot_proto=0
 unresolved=0
 declared_merge=0
 
@@ -394,10 +450,102 @@ classify_stub() {
 	plan_result=write
 }
 
+# classify_file <rel> <machine-file> — the file analogue of classify. Merge is
+# undefined here: for a single TOML file the only honest actions are overwrite,
+# which moves the machine's file to the backup and lets the repo win, and
+# refuse. That is the same pair the git path takes, for the same reason.
+classify_file() {
+	c_rel="$1"
+	c_path="$2"
+	plan_result=''
+	slot_result=0
+
+	if [ ! -f "$proto_target" ]; then
+		echo "✖ $c_rel: the record is missing — $proto_target is not in this clone" >&2
+		unresolved=$((unresolved + 1))
+		plan_result=refuse
+		return 0
+	fi
+	# A directory here is not a record. Without this, cmp and diff both exit 2
+	# writing to unredirected stderr, the listing comes out empty, the digest
+	# becomes the sha of an empty file, and --resolve proto=overwrite moves the
+	# whole directory into the backup slot on the strength of a diff that showed
+	# nothing.
+	if [ -e "$c_path" ] && [ ! -L "$c_path" ] && [ ! -f "$c_path" ]; then
+		echo "✖ $c_path is not a regular file — refusing rather than treating it as a record" >&2
+		unresolved=$((unresolved + 1))
+		plan_result=refuse
+		return 0
+	fi
+	if [ -e "$c_path" ] && [ ! -L "$c_path" ] && [ ! -r "$c_path" ]; then
+		echo "✖ $c_path is not readable — refusing rather than diffing it partially" >&2
+		unresolved=$((unresolved + 1))
+		plan_result=refuse
+		return 0
+	fi
+	c_declared=$(already_keyed "$resolutions" "$c_rel")
+
+	if [ -L "$c_path" ]; then
+		if [ "$(readlink -- "$c_path")" = "$proto_target" ]; then
+			echo "✓ ok         $c_path -> $proto_target (already linked)"
+			[ -z "$c_declared" ] || echo "· note      --resolve $c_rel=$c_declared was not needed here"
+			plan_result=ok
+			return 0
+		fi
+		echo "→ relink     $c_path is a link to $(readlink -- "$c_path")"
+		[ -z "$c_declared" ] || echo "· note      --resolve $c_rel=$c_declared was not needed here"
+		plan_result=relink
+		slot_result=1
+		return 0
+	fi
+
+	if [ ! -e "$c_path" ]; then
+		echo "→ link       $c_path (nothing there)"
+		[ -z "$c_declared" ] || echo "· note      --resolve $c_rel=$c_declared was not needed here"
+		plan_result=link
+		return 0
+	fi
+
+	echo "‼ $c_path is a real file, and the record lives at $proto_target"
+	show_file_diff "$c_rel" "$c_path"
+
+	if [ -n "$c_declared" ]; then
+		echo "→ declared   $c_path: $c_declared (--resolve $c_rel=$c_declared)"
+		c_answer="$c_declared"
+	elif [ "$non_interactive" -eq 1 ] || [ ! -t 0 ]; then
+		echo "✖ $c_path: a real file is in the way, nothing was declared for it and there is no TTY to ask — refusing" >&2
+		echo "  re-run from a terminal, or declare the decision:" >&2
+		echo "    --resolve $c_rel=overwrite" >&2
+		unresolved=$((unresolved + 1))
+		plan_result=refuse
+		return 0
+	else
+		printf 'Resolve %s — [o]verwrite (repo wins) / [r]efuse: ' "$c_path"
+		read -r c_answer || c_answer=refuse
+	fi
+
+	case "$c_answer" in
+	o | O | overwrite)
+		plan_result=overwrite
+		slot_result=1
+		;;
+	*)
+		if [ -n "$c_declared" ]; then
+			echo "✖ $c_path: refused as declared, nothing will change" >&2
+		else
+			echo "✖ $c_path: refused, nothing will change" >&2
+		fi
+		unresolved=$((unresolved + 1))
+		plan_result=refuse
+		;;
+	esac
+}
+
 echo "consus install"
 echo "  repo:        $repo"
 echo "  record:      $record"
 echo "  config home: $config_home"
+echo "  proto store: $proto_store"
 echo "  backups:     $backup_dir (created only if something is displaced)"
 [ -z "$resolutions" ] || echo "  resolutions:$resolutions"
 [ -z "$expectations" ] || echo "  expect-diff:$expectations"
@@ -406,6 +554,7 @@ echo "plan:"
 
 classify fish; plan_fish="$plan_result"; slot_fish="$slot_result"
 classify_stub; plan_stub="$plan_result"; slot_stub="$slot_result"
+classify_file proto "$proto_path"; plan_proto="$plan_result"; slot_proto="$slot_result"
 classify git; plan_git="$plan_result"; slot_git="$slot_result"
 
 # ---------------------------------------------------------------------------
@@ -423,13 +572,14 @@ check_slot() {
 }
 check_slot "$slot_fish" fish
 check_slot "$slot_stub" ghostty/config.ghostty
+check_slot "$slot_proto" proto/.prototools
 check_slot "$slot_git" git
 
 # Nothing has moved yet, so this is the last place a run can refuse cleanly.
 # The apply phase cannot recover from an unwritable backup directory: it would
 # fail after earlier paths were already linked, which is the half-linked
 # machine the refusal above promises is impossible.
-if [ "$unresolved" -eq 0 ] && [ $((slot_fish + slot_stub + slot_git)) -ne 0 ]; then
+if [ "$unresolved" -eq 0 ] && [ $((slot_fish + slot_stub + slot_proto + slot_git)) -ne 0 ]; then
 	if ! mkdir -p -- "$backup_dir" 2>/dev/null || [ ! -w "$backup_dir" ]; then
 		echo "✖ backup directory $backup_dir cannot be created or written to" >&2
 		unresolved=$((unresolved + 1))
@@ -501,6 +651,30 @@ apply_path() {
 	esac
 }
 
+apply_file() {
+	p_rel="$1"
+	p_plan="$2"
+	p_path="$3"
+
+	case "$p_plan" in
+	ok) ;;
+	link | relink | overwrite)
+		[ "$p_plan" = link ] || move_aside "$p_rel/.prototools" "$p_path"
+		mkdir -p -- "$(dirname -- "$p_path")"
+		ln -s -- "$proto_target" "$p_path"
+		if [ "$p_plan" = overwrite ]; then
+			echo "✓ linked     $p_path -> $proto_target (the repo's content wins)"
+		else
+			echo "✓ linked     $p_path -> $proto_target"
+		fi
+		;;
+	*)
+		echo "✖ apply_file: unreachable plan '$p_plan' for $p_rel" >&2
+		exit 1
+		;;
+	esac
+}
+
 apply_path fish "$plan_fish"
 
 s_path="$config_home/ghostty/config.ghostty"
@@ -514,6 +688,8 @@ rewrite | write)
 	echo "✓ wrote      $s_path"
 	;;
 esac
+
+apply_file proto "$plan_proto" "$proto_path"
 
 # git goes last, and its backup-move and link creation are adjacent with nothing
 # between them: in that window there is no global git config at all. Every
