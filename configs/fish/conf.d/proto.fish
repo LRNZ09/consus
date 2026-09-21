@@ -10,13 +10,15 @@
 # and PROTO_HOME is deliberately not set: proto's own default is the store, and
 # setting it here would make it exist only inside fish.
 #
-# PROTO_REPORTER is load-bearing, not cosmetic. In agent environments proto
-# emits NDJSON, which `source` cannot parse — roughly 20 lines of errors per
-# shell start. It has to be `set -gx` rather than a one-shot prefix: activation
-# re-runs through a fish hook whose body shells out to
+# PROTO_REPORTER is kept as insurance, not as an active fix here. proto 0.58.2
+# emitted NDJSON in agent environments, which `source` could not parse,
+# producing errors on every shell start. proto 0.62.2 does not — verified
+# against both binaries on 2026-09-22 with AI_AGENT set. The setting stays for
+# a machine that ends up running an older proto again, not because this one
+# needs it. It still has to be `set -gx` rather than a one-shot prefix:
+# activation re-runs through a fish hook whose body shells out to
 # `proto activate fish --export`, and only an exported variable reaches that
-# inner call. Measured — `proto activate fish -r text` does not work, because
-# the flag never propagates.
+# inner call.
 if type -q proto
     set -gx PROTO_REPORTER text
     proto activate fish | source
