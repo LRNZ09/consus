@@ -6,10 +6,16 @@ refuse rather than clobber — see "Traps".
 1. The prerequisites, and the clone:
 
    ```sh
-   brew install lefthook gitleaks proto jq
+   brew install lefthook gitleaks proto jq bats-core
    git clone https://github.com/LRNZ09/consus.git ~/Developer/LRNZ09/consus
    cd ~/Developer/LRNZ09/consus
    ```
+
+   `bats-core` is what `bin/doctor` runs on; `jq` is what it reads proto's
+   manifests with. Both are in the [brewfile][brewfile] too, so a machine built
+   from that already has them.
+
+[brewfile]: https://github.com/LRNZ09/brewfile
 
 2. The repo's own two settings. `~/.config` is mode 700 and the links lead
    here, but a fresh clone under `~/Developer` is 755; `lefthook install` is
@@ -57,7 +63,8 @@ refuse rather than clobber — see "Traps".
 
    It exits 0 when this machine matches the record, and names whatever does
    not — so a run of this list that stopped halfway is finished by reading its
-   output.
+   output. Each assertion, and the reason it exists, is one named test in
+   `bin/doctor.bats`.
 
 ## Traps
 

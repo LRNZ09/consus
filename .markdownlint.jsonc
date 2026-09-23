@@ -3,16 +3,16 @@
 // it. Everything else stays enforced.
 {
   "MD013": {
-    // Code blocks are verbatim. bin/doctor is written from the fences in
-    // docs/superpowers/plans/, and the fisher bootstrap URL in INSTALL.md is
-    // past 80 characters on its own, which leaves no room for a continuation.
+    // Code blocks are verbatim: a fence is quoted from, or written into, a
+    // real file. The fisher bootstrap URL in INSTALL.md is past 80 characters
+    // on its own, which leaves no room for a continuation.
     "code_blocks": false,
     // A markdown table row cannot wrap. The design document's measurement
     // tables carry cells well past 80 characters.
     "tables": false
   },
   "MD010": {
-    // Every hard tab is inside a code block: two POSIX sh scripts, and
+    // Every hard tab is inside a code block: shell quoted from bin/, and
     // gitconfig snippets that have to match a file this repo indents with
     // tabs throughout.
     "code_blocks": false

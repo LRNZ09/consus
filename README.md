@@ -79,7 +79,9 @@ regenerating its own completions, or OrbStack running again.
 
 `bin/doctor` exists because link integrity is the one invariant git cannot
 express: this repo can be pristine while `~/.config` points somewhere else, and
-for git and fish a severed link is completely silent.
+for git and fish a severed link is completely silent. It is a `bats` suite —
+`bin/doctor.bats`, one named test per assertion, each carrying the measurement
+that put it there — behind a wrapper that fixes the flags.
 
 proto's link is on a file, not a directory, so no `rm -rf` can empty a
 directory through it — the 2.3 GB store it points into is unaffected. But a
