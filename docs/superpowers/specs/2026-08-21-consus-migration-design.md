@@ -12,6 +12,15 @@ describes a superseded layout — see "What this repo guarantees a provisioner".
 **Amended-by:** `docs/superpowers/specs/2026-09-21-proto-into-consus-design.md`,
 which ends the `~/.proto` exception recorded under "Deliberately out of scope"
 below.
+**Partly historical since 2026-09-23:** `bin/install` was deleted and its
+commands moved into the README. Everything this document says about the
+plan/apply split, the backup-directory convention, `--resolve`, `--expect-diff`
+and "What this repo guarantees a provisioner" describes machinery that no
+longer exists — `sancus` was reduced to `brewfile` and its `satellites` role
+deleted, so the provisioner those guarantees were written for is gone. The
+mechanism this document actually chose — inward symlinks, measured against
+seven alternatives — is unchanged and still correct, and `bin/doctor` still
+enforces it.
 
 ## What this does
 

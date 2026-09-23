@@ -1,15 +1,16 @@
 #!/bin/sh
 # consus/bin/doctor — a report, never a repair. Exits 0 when this machine
 # matches the record and non-zero when it does not, and changes neither the
-# record nor the links either way. The link checks and the proto pin check read
-# files and nothing else. The one side effect is the fish probe: `fish -c`
-# sources conf.d/proto.fish, which runs `proto activate`, and that materialises
-# the proto store directory when it is missing.
+# record nor the links either way. The one side effect is the fish probe:
+# `fish -c` sources conf.d/proto.fish, which runs `proto activate`, and that
+# materialises the proto store directory when it is missing.
 #
 # Link integrity is the one invariant git cannot express: the repo can be
-# pristine while $XDG_CONFIG_HOME points somewhere else, and for git and fish a
-# severed link is completely silent. That is what makes this script load-bearing
-# rather than a convenience. See the design document under docs/superpowers/.
+# pristine while $XDG_CONFIG_HOME points somewhere else, and for git, fish and
+# proto a severed link is completely silent. That is what makes this script
+# load-bearing rather than a convenience — and, since there is no installer
+# any more, it also checks the two things linking by hand does not do for you:
+# the repo's mode and lefthook's hooks. Setup lives in the README.
 set -eu
 
 unset CDPATH
@@ -21,8 +22,17 @@ failed=0
 fish_link_ok=0
 proto_link_ok=0
 
-present=$(mktemp); classified=$(mktemp); unclassified=$(mktemp); pins=$(mktemp)
-trap 'rm -f "$present" "$classified" "$unclassified" "$pins"' EXIT
+# proto's store, in proto's own precedence order. proto never reads
+# XDG_CONFIG_HOME, so its record is the one path here that is not under
+# $config_home — and it is a single file, because PROTO_HOME relocates the
+# whole 2.3 GB store and cannot separate the record from it.
+if [ -n "${PROTO_HOME:-}" ]; then
+	proto_store="$PROTO_HOME"
+elif [ -n "${XDG_DATA_HOME:-}" ]; then
+	proto_store="$XDG_DATA_HOME/proto"
+else
+	proto_store="$HOME/.proto"
+fi
 
 echo "consus doctor"
 echo "  repo:        $repo"
@@ -30,11 +40,12 @@ echo "  record:      $record"
 echo "  config home: $config_home"
 echo
 
-# --- the two links ----------------------------------------------------------
-# check_link <rel> — returns non-zero when the link is missing or wrong.
+# --- the three links --------------------------------------------------------
+# One check for all three: a directory link and a file link differ in what they
+# point at, not in what makes them healthy.
 check_link() {
-	c_target="$record/$1"
-	c_path="$config_home/$1"
+	c_path="$1"
+	c_target="$2"
 	if [ ! -L "$c_path" ]; then
 		echo "✖ $c_path is not a symlink (expected -> $c_target)" >&2
 		return 1
@@ -44,48 +55,42 @@ check_link() {
 		echo "✖ $c_path -> $c_current (expected -> $c_target)" >&2
 		return 1
 	fi
-	echo "✓ link       $c_path -> $c_target"
-}
-
-# check_file_link <machine-file> <repo-file> — the file analogue of
-# check_link. proto's record is a single file at proto's own path, which is not
-# under $config_home: proto never reads XDG_CONFIG_HOME.
-check_file_link() {
-	f_path="$1"
-	f_target="$2"
-	if [ ! -L "$f_path" ]; then
-		echo "✖ $f_path is not a symlink (expected -> $f_target)" >&2
-		return 1
-	fi
-	f_current=$(readlink -- "$f_path")
-	if [ "$f_current" != "$f_target" ]; then
-		echo "✖ $f_path -> $f_current (expected -> $f_target)" >&2
-		return 1
-	fi
 	# A link whose target is gone still reads back correctly, so readlink alone
 	# would report a DANGLING link as healthy — and a dangling record is exactly
 	# the state this check exists to catch: proto reads nothing and silently
 	# reverts to its built-in defaults, telemetry included.
-	if [ ! -e "$f_path" ]; then
-		echo "✖ $f_path -> $f_target, but the target does not exist" >&2
+	if [ ! -e "$c_path" ]; then
+		echo "✖ $c_path -> $c_target, but the target does not exist" >&2
 		return 1
 	fi
-	echo "✓ link       $f_path -> $f_target"
+	echo "✓ link       $c_path -> $c_target"
 }
 
-check_link git || failed=1
-if check_link fish; then fish_link_ok=1; else failed=1; fi
-
-if [ -n "${PROTO_HOME:-}" ]; then
-	proto_store="$PROTO_HOME"
-elif [ -n "${XDG_DATA_HOME:-}" ]; then
-	proto_store="$XDG_DATA_HOME/proto"
-else
-	proto_store="$HOME/.proto"
-fi
-if check_file_link "$proto_store/.prototools" "$record/proto/.prototools"; then
+check_link "$config_home/git" "$record/git" || failed=1
+if check_link "$config_home/fish" "$record/fish"; then fish_link_ok=1; else failed=1; fi
+if check_link "$proto_store/.prototools" "$record/proto/.prototools"; then
 	proto_link_ok=1
 else
+	failed=1
+fi
+
+# --- the repo's own mode and hooks ------------------------------------------
+# $config_home is mode 700 and the links lead here, so this directory is read
+# through them; a fresh clone under ~/Developer is 755. Nothing enforces either
+# of these now that the links are made by hand, so they are asserted here.
+mode=$(stat -f %Lp -- "$repo")
+if [ "$mode" = 700 ]; then
+	echo "✓ mode       $repo is 700"
+else
+	echo "✖ $repo is mode $mode, expected 700 — run: chmod 700 $repo" >&2
+	failed=1
+fi
+
+if grep -q lefthook "$repo/.git/hooks/pre-commit" 2>/dev/null; then
+	echo "✓ lefthook   hooks installed in $repo"
+else
+	echo "✖ lefthook's hooks are not installed — run: cd $repo && lefthook install" >&2
+	echo "  without them gitleaks does not see a commit until it is pushed" >&2
 	failed=1
 fi
 
@@ -119,17 +124,27 @@ fi
 # --- fish: the declaration, then the unclassified report ---------------------
 # Gated on the link, and not merely for tidiness: fish CREATES
 # $XDG_CONFIG_HOME/fish when it is missing, so querying fisher through a severed
-# link would plant a real directory where the link belongs — turning install's
-# silent relink into a prompt on the next run. Measured.
+# link would plant a real directory where the link belongs. Measured.
 if [ "$fish_link_ok" -eq 0 ]; then
 	echo "· fish       skipped — $config_home/fish is not the expected link, and"
 	echo "·            starting fish would create a real directory there."
 elif ! command -v fish >/dev/null 2>&1; then
 	echo "· fish       not installed — skipped the plugin checks"
 else
-	# `fish -c` is safe here: measured, reading a universal variable leaves
-	# fish_variables untouched. conf.d noise goes to stderr, hence 2>/dev/null.
-	installed=$(fish -c 'string join \n -- $_fisher_plugins' 2>/dev/null || true)
+	present=$(mktemp); classified=$(mktemp); unclassified=$(mktemp)
+	trap 'rm -f "$present" "$classified" "$unclassified"' EXIT
+
+	# One fish, not two: each start sources conf.d and runs `proto activate`.
+	# A sentinel splits the two answers. `fish -c` is safe here: measured,
+	# reading a universal variable leaves fish_variables untouched. conf.d noise
+	# goes to stderr, hence 2>/dev/null.
+	probe=$(fish -c 'string join \n -- $_fisher_plugins
+		echo ---
+		for v in (set --names | string match "_fisher_*_files"); string join \n -- $$v; end' \
+		2>/dev/null || true)
+	installed=$(printf '%s\n' "$probe" | sed -n '1,/^---$/p' | sed '/^---$/d')
+	fisher_files=$(printf '%s\n' "$probe" | sed -n '/^---$/,$p' | sed '/^---$/d')
+
 	if [ -z "$installed" ]; then
 		echo "· fisher     never ran here (_fisher_plugins is unset) — skipped the plugin"
 		echo "·            checks. A fresh clone has fish_plugins and no fisher, because"
@@ -138,13 +153,15 @@ else
 		echo "·              fisher install jorgebucaran/fisher"
 		echo "·              fisher update"
 	else
-		# Declared-but-not-installed. Pins are stripped from both sides: the
-		# declaration carries pins the installed record does not, and this check
-		# is about a plugin being present, not about which tag it came from.
+		# Declared-but-not-installed. Pins are stripped from both sides once,
+		# before the loop: the declaration carries pins the installed record
+		# does not, and this check is about a plugin being present, not about
+		# which tag it came from.
+		installed_names=$(printf '%s\n' "$installed" | sed 's|@.*||')
 		missing=0
 		while IFS= read -r declared; do
 			[ -n "$declared" ] || continue
-			if ! printf '%s\n' "$installed" | sed 's|@.*||' | grep -qxF "${declared%%@*}"; then
+			if ! printf '%s\n' "$installed_names" | grep -qxF "${declared%%@*}"; then
 				echo "✖ declared but not installed: $declared" >&2
 				missing=$((missing + 1))
 			fi
@@ -165,7 +182,7 @@ else
 			git -C "$repo" ls-files configs/fish | sed 's|^configs/fish/||'
 			# Fisher records its paths with a literal ~/.config/fish/ prefix, so
 			# strip that (and the real forms) or nothing ever matches.
-			fish -c 'for v in (set --names | string match "_fisher_*_files"); string join \n -- $$v; end' 2>/dev/null |
+			printf '%s\n' "$fisher_files" |
 				sed "s|^~/\\.config/fish/||; s|^$HOME/\\.config/fish/||; s|^$fish_dir/||"
 			printf '%s\n' \
 				completions/copilot.fish \
@@ -176,18 +193,13 @@ else
 				fish_variables
 			# OrbStack's completions are symlinks into /Applications/OrbStack.app.
 			# Matched by target rather than by name, so a fourth one does not
-			# report as unclassified forever.
-			while IFS= read -r entry; do
-				if [ -L "$fish_dir/$entry" ]; then
-					case "$(readlink -- "$fish_dir/$entry")" in
-					*OrbStack.app*) printf '%s\n' "$entry" ;;
-					esac
-				fi
-			done < "$present"
+			# report as unclassified forever. One find, not a readlink per entry.
+			( cd -- "$fish_dir" && find . -type l -lname '*OrbStack.app*' ) |
+				sed 's|^\./||'
 		} | sort -u > "$classified"
 
 		comm -23 "$present" "$classified" > "$unclassified"
-		count=$(wc -l < "$unclassified" | tr -d ' ')
+		count=$(($(wc -l < "$unclassified")))
 		if [ "$count" -eq 0 ]; then
 			echo "✓ fish       every entry under configs/fish/ is accounted for"
 		else
@@ -199,7 +211,6 @@ else
 		fi
 	fi
 fi
-
 
 # --- proto: declared, then installed -----------------------------------------
 # The analogue of the fish plugin check: .prototools is to tools/ what
@@ -218,12 +229,9 @@ if [ "$proto_link_ok" -eq 0 ]; then
 elif ! command -v jq >/dev/null 2>&1; then
 	echo "· proto      jq not installed — skipped the pin check (brew install jq)"
 elif [ ! -f "$record/proto/.prototools" ]; then
-	# Belt and braces. check_file_link already rejects a dangling link, so this
-	# normally cannot fire — it covers the residue, such as a target that exists
-	# but is a directory. It earns its place anyway: without it the awk below is
-	# a simple command under `set -e`, so an unreadable record would abort doctor
-	# at exit 2 with a raw "can't open file", skipping the review queue and the
-	# closing summary, which is not the contract the file header states.
+	# check_link already rejects a dangling link; this covers the residue, such
+	# as a target that exists but is a directory. It also keeps the awk below
+	# from aborting doctor under `set -e` before the closing summary.
 	echo "✖ $record/proto/.prototools is not a readable file" >&2
 	failed=1
 else
@@ -231,18 +239,8 @@ else
 	# the root, and everything after belongs to that table. `exit` is therefore
 	# correct — but it also means a record whose first line is a table yields
 	# nothing, so the count below is what stops "checked nothing" reading as
-	# "everything is fine".
-	# sub(/#.*/) first: TOML allows a trailing comment, and without stripping it
-	# `node = "26.5.0"  # keep` yields the version `26.5.0#keep`, which starts
-	# with a digit, gets looked up, and reports a false "not installed". No
-	# version string contains a #, so removing everything from the first one is
-	# safe here.
-	awk '/^\[/ { exit }
-	     /^[A-Za-z]/ && /=/ { sub(/#.*/, ""); gsub(/["[:space:]]/, "")
-	                          n = index($0, "=")
-	                          if (n > 1 && length($0) > n)
-	                              print substr($0, 1, n - 1), substr($0, n + 1) }' \
-		"$record/proto/.prototools" > "$pins"
+	# "everything is fine". sub(/#.*/) first, or a trailing comment becomes part
+	# of the version. No version string contains a #.
 	missing=0
 	checked=0
 	while read -r p_tool p_ver; do
@@ -258,7 +256,9 @@ else
 		# A pin may be a prefix: `proto pin node 22` writes "22" while the
 		# manifest records "22.23.1". An exact match would call that missing
 		# forever. Matching on "$p_ver." rather than a bare prefix keeps 2 from
-		# matching 22.23.1.
+		# matching 22.23.1. jq, not grep: the manifest carries a `versions` list
+		# of what is AVAILABLE beside `installed_versions`, and a plain grep
+		# cannot tell the two apart.
 		if [ ! -f "$p_manifest" ] ||
 			! jq -e --arg v "$p_ver" \
 				'.installed_versions // [] | any(. == $v or startswith($v + "."))' \
@@ -266,7 +266,14 @@ else
 			echo "✖ declared but not installed: $p_tool $p_ver" >&2
 			missing=$((missing + 1))
 		fi
-	done < "$pins"
+	done <<EOF
+$(awk '/^\[/ { exit }
+       /^[A-Za-z]/ && /=/ { sub(/#.*/, ""); gsub(/["[:space:]]/, "")
+                            n = index($0, "=")
+                            if (n > 1 && length($0) > n)
+                                print substr($0, 1, n - 1), substr($0, n + 1) }' \
+	"$record/proto/.prototools")
+EOF
 	if [ "$checked" -eq 0 ]; then
 		echo "✖ no pins found in configs/proto/.prototools — the record is empty or malformed" >&2
 		failed=1
@@ -280,21 +287,19 @@ fi
 
 # Advisory, and deliberately OUTSIDE the block above. A self-installed proto in
 # the store shadows Homebrew's, because activation prepends the store's bin. If
-# this report were gated on the link check and on jq, it would go quiet in
-# exactly the situations where drift is most likely. Never assert a version
-# here: which binary answers depends on which shell ran this script.
+# this report were gated on the link check it would go quiet in exactly the
+# situations where drift is most likely. Never assert a version here: which
+# binary answers depends on which shell ran this script.
 if [ -e "$proto_store/bin/proto" ]; then
 	echo "· proto      $proto_store/bin/proto exists and shadows Homebrew's on PATH."
 	echo "·            brew upgrade proto cannot reach it. Advisory — this never fails."
 fi
 
 # --- the review queue -------------------------------------------------------
-# Advisory, like the unclassified report, and deliberately not a failure. The
-# tools read the working tree, so the machine and the working tree agree by
-# construction; what a dirty tree means is that the *committed* record has not
-# caught up, and the design wants that difference visible in `git status` rather
-# than hidden. It is reported here so an unattended log carries it, and the
-# migration tasks gate on it themselves before pushing.
+# Advisory, and deliberately not a failure. The tools read the working tree, so
+# the machine and the working tree agree by construction; what a dirty tree
+# means is that the *committed* record has not caught up, and the design wants
+# that difference visible in `git status` rather than hidden.
 queue=$(git -C "$repo" status --porcelain 2>/dev/null || true)
 if [ -n "$queue" ]; then
 	echo "· tree       uncommitted changes — the review queue:"
