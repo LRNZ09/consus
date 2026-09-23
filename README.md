@@ -41,60 +41,13 @@ binary installed anywhere on this machine; **gh**, whose entire payload is
 
 ## A fresh machine
 
-```sh
-brew install lefthook gitleaks proto jq
-git clone https://github.com/LRNZ09/consus.git ~/Developer/LRNZ09/consus
-cd ~/Developer/LRNZ09/consus
-chmod 700 .              # ~/.config is 700, and the links lead here
-lefthook install         # gitleaks on every commit, not only on push
+The commands are in [INSTALL.md](INSTALL.md): the prerequisites, `chmod 700`
+and `lefthook install`, the three links and the ghostty include, the
+toolchains, fisher, and `bin/doctor` to verify. Six steps, run once per
+machine.
 
-mkdir -p ~/.config ~/.config/ghostty ~/.proto
-ln -s "$PWD/configs/fish" ~/.config/fish
-ln -s "$PWD/configs/proto/.prototools" ~/.proto/.prototools
-printf 'config-file = %s\n' "$PWD/configs/ghostty/config.ghostty" \
-	> ~/.config/ghostty/config.ghostty
-ln -s "$PWD/configs/git" ~/.config/git     # git last: until it lands there is
-                                           # no global git config at all
-proto install --config-mode global    # restores the nine pinned toolchains
-```
-
-The `--config-mode global` flag is not optional: a bare `proto install`
-defaults to `upwards` mode, never loads the global record at all, and reports
-"nothing to install" while exiting 0.
-
-Then bootstrap fisher. A fresh clone has `fish_plugins` and no fisher at all —
-fisher's own two files are among the ignored ones, so the command that reads the
-record does not exist yet:
-
-```fish
-curl -sL https://raw.githubusercontent.com/jorgebucaran/fisher/main/functions/fisher.fish | source
-fisher install jorgebucaran/fisher   # makes fisher itself permanent
-fisher update                        # materialises the rest from fish_plugins
-```
-
-Finally:
-
-```sh
-./bin/doctor             # exits 0 when this machine matches the record
-```
-
-If something real is already at one of those paths — fish creates
-`~/.config/fish` on its first run, so on a machine that has started fish once
-there will be — move it aside rather than deleting it, and link afterwards:
-
-```sh
-mv ~/.config/fish ~/config-fish.bak
-```
-
-`ln -s` refuses rather than clobbering, so a path still occupied fails loudly
-and the rest of the sequence is unaffected. `bin/doctor` names whichever link
-did not land, so a run that stops halfway is finished by reading its output.
-
-There used to be a 714-line `bin/install` here, with a plan/apply split, a
-backup-directory convention and a `--resolve`/`--expect-diff` grammar. It was
-built for the provisioner that once drove this repo; that provisioner no longer
-exists, and what is left is the nine commands above, run once per machine.
-`bin/doctor` is the part that runs again.
+`bin/doctor` is the part that runs again — see "The hazard of a linked
+directory" below for why it exists.
 
 ## Per-machine settings
 
@@ -138,10 +91,9 @@ nothing to warn you. That is what `bin/doctor` catches.
 `lefthook` runs `gitleaks` over staged changes before every commit, once
 `lefthook install` has been run in this clone — which `bin/doctor` asserts,
 because a clone without it is silently unprotected until the next push.
-`.github/workflows/gitleaks.yml`
-re-scans the full history on every push, as the backstop `--no-verify` cannot
-bypass. Rules live in `.gitleaks.toml`, which flags any committed email address
-that is not a GitHub noreply.
+`.github/workflows/gitleaks.yml` re-scans the full history on every push, as
+the backstop `--no-verify` cannot bypass. Rules live in `.gitleaks.toml`, which
+flags any committed email address that is not a GitHub noreply.
 
 ## Why any of this
 
