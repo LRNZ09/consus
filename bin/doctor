@@ -121,29 +121,26 @@ else
 	fi
 fi
 
-# --- fish: the declaration, then the unclassified report ---------------------
+# --- fish: the declaration vs what fisher installed -------------------------
 # Gated on the link, and not merely for tidiness: fish CREATES
 # $XDG_CONFIG_HOME/fish when it is missing, so querying fisher through a severed
 # link would plant a real directory where the link belongs. Measured.
+#
+# Not checked here: whether a file under configs/fish/ is hand-written or tool
+# output. The allow-list hides a new hand-written file from `git status`
+# entirely — measured, not even as untracked — and `git status --ignored
+# configs/fish` is how to see one. doctor used to tell the two apart by a list
+# of six filenames plus an OrbStack symlink heuristic; that was 40 lines whose
+# only failure mode was rotting silently as those names changed.
 if [ "$fish_link_ok" -eq 0 ]; then
 	echo "· fish       skipped — $config_home/fish is not the expected link, and"
 	echo "·            starting fish would create a real directory there."
 elif ! command -v fish >/dev/null 2>&1; then
 	echo "· fish       not installed — skipped the plugin checks"
 else
-	present=$(mktemp); classified=$(mktemp); unclassified=$(mktemp)
-	trap 'rm -f "$present" "$classified" "$unclassified"' EXIT
-
-	# One fish, not two: each start sources conf.d and runs `proto activate`.
-	# A sentinel splits the two answers. `fish -c` is safe here: measured,
-	# reading a universal variable leaves fish_variables untouched. conf.d noise
-	# goes to stderr, hence 2>/dev/null.
-	probe=$(fish -c 'string join \n -- $_fisher_plugins
-		echo ---
-		for v in (set --names | string match "_fisher_*_files"); string join \n -- $$v; end' \
-		2>/dev/null || true)
-	installed=$(printf '%s\n' "$probe" | sed -n '1,/^---$/p' | sed '/^---$/d')
-	fisher_files=$(printf '%s\n' "$probe" | sed -n '/^---$/,$p' | sed '/^---$/d')
+	# `fish -c` is safe here: measured, reading a universal variable leaves
+	# fish_variables untouched. conf.d noise goes to stderr, hence 2>/dev/null.
+	installed=$(fish -c 'string join \n -- $_fisher_plugins' 2>/dev/null || true)
 
 	if [ -z "$installed" ]; then
 		echo "· fisher     never ran here (_fisher_plugins is unset) — skipped the plugin"
@@ -171,43 +168,6 @@ else
 			failed=1
 		else
 			echo "✓ plugins    every plugin in configs/fish/fish_plugins is installed"
-		fi
-
-		# Unclassified entries. The allow-list hides a new hand-written file from
-		# `git status` entirely — measured, not even as untracked — so this
-		# report is the only way it becomes visible. Advisory: never fails.
-		( cd -- "$fish_dir" && find . -name .git -prune -o ! -type d -print ) |
-			sed 's|^\./||' | sort > "$present"
-		{
-			git -C "$repo" ls-files configs/fish | sed 's|^configs/fish/||'
-			# Fisher records its paths with a literal ~/.config/fish/ prefix, so
-			# strip that (and the real forms) or nothing ever matches.
-			printf '%s\n' "$fisher_files" |
-				sed "s|^~/\\.config/fish/||; s|^$HOME/\\.config/fish/||; s|^$fish_dir/||"
-			printf '%s\n' \
-				completions/copilot.fish \
-				completions/pipx.fish \
-				completions/proto.fish \
-				conf.d/fish_frozen_key_bindings.fish \
-				conf.d/fish_frozen_theme.fish \
-				fish_variables
-			# OrbStack's completions are symlinks into /Applications/OrbStack.app.
-			# Matched by target rather than by name, so a fourth one does not
-			# report as unclassified forever. One find, not a readlink per entry.
-			( cd -- "$fish_dir" && find . -type l -lname '*OrbStack.app*' ) |
-				sed 's|^\./||'
-		} | sort -u > "$classified"
-
-		comm -23 "$present" "$classified" > "$unclassified"
-		count=$(($(wc -l < "$unclassified")))
-		if [ "$count" -eq 0 ]; then
-			echo "✓ fish       every entry under configs/fish/ is accounted for"
-		else
-			echo "· fish       $count unclassified under configs/fish/ — hand-written and hidden by"
-			echo "·            the allow-list, or output from a tool nobody classified:"
-			sed 's|^|·              |' "$unclassified"
-			echo "·            Add a .gitignore negation for anything that belongs in the"
-			echo "·            record. Advisory — this never fails the run."
 		fi
 	fi
 fi

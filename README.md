@@ -58,8 +58,9 @@ directory" below for why it exists.
   must physically live inside it.
 - **fish** — any new `conf.d/*.fish` file is machine-local by default: the
   allow-list in `.gitignore` ignores everything under `configs/fish/` it does
-  not name. `bin/doctor` reports such a file, which is the only way it becomes
-  visible.
+  not name. Such a file is invisible to a bare `git status` — not even as
+  untracked — so `git status --ignored configs/fish` is how to find one, and a
+  `.gitignore` negation is how to promote it into the record.
 - **ghostty** — `~/.config/ghostty/local.ghostty`. The repo's config ends with
   an optional include of it, so a machine without one loads nothing and says
   nothing.
