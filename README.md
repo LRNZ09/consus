@@ -5,16 +5,23 @@ one directory per tool, and each tool finds it at its own default path, which is
 a symlink into this repo:
 
 ```text
-~/.config/git          →  <this clone>/configs/git
-~/.config/fish         →  <this clone>/configs/fish
-~/.proto/.prototools   →  <this clone>/configs/proto/.prototools
-~/.agents/agents.toml  →  <this clone>/configs/agents/agents.toml
+~/.config/git            →  <this clone>/configs/git
+~/.config/fish           →  <this clone>/configs/fish
+~/.proto/.prototools     →  <this clone>/configs/proto/.prototools
+~/.agents/agents.toml    →  <this clone>/configs/agents/agents.toml
+~/.claude/settings.json  →  <this clone>/configs/claude/settings.json
+~/.claude/AGENTS.md      →  <this clone>/configs/claude/AGENTS.md
+~/.claude/hooks          →  <this clone>/configs/claude/hooks
+~/.claude/scripts        →  <this clone>/configs/claude/scripts
 ```
 
-proto and agents are the two tools whose paths are not under `~/.config`,
-because neither proto nor dotagents reads `XDG_CONFIG_HOME`, and the two
-whose links are on a file rather than a directory: proto's 2.3 GB store and
-dotagents' installed skills are the directories.
+proto, agents and claude are the tools whose paths are not under `~/.config`,
+because none of proto, dotagents and Claude Code reads `XDG_CONFIG_HOME`. None
+of them links the tool's own directory, because each holds far more than the
+record: proto's 2.3 GB store, dotagents' installed skills, and Claude Code's
+4 GB of sessions, transcripts and plugins. So proto and agents link a single
+file, and claude links two files and two subdirectories, `hooks` and
+`scripts`, which hold only tracked files.
 
 Ghostty is the exception. Its winning config path on macOS is
 `~/Library/Application Support/com.mitchellh.ghostty/config`, which no symlink
@@ -37,6 +44,10 @@ here.
 - **configs/agents** — `agents.toml`, the `@sentry/dotagents` user-scope
   record. The lock and the installed skills stay in `~/.agents`; the
   directory's README says why, and what not to run there.
+- **configs/claude** — `settings.json`, the global `AGENTS.md`, two hooks and
+  the status-line script. Everything else in `~/.claude` stays there. Git
+  stores placeholders for the private values in `settings.json`; the
+  directory's README says how, and what not to do there.
 
 Deliberately not managed: **zed**, whose settings-sync extensions are in flight
 and would compete with anything versioned here; **opencode**, which has no
@@ -48,10 +59,10 @@ target, but nothing there is managed here; **gh**, whose entire payload is
 
 ## A fresh machine
 
-The commands are in [INSTALL.md](INSTALL.md): the prerequisites, `chmod 700`
-and `lefthook install`, the four links and the ghostty include, the
-toolchains, fisher, the skills, and `bin/doctor` to verify. Seven steps, run
-once per machine.
+The commands are in [INSTALL.md](INSTALL.md): the prerequisites, `chmod 700`,
+`lefthook install` and the placeholders filter, the eight links and the
+ghostty include, the toolchains, fisher, the skills, and `bin/doctor` to
+verify. Seven steps, run once per machine.
 
 `bin/doctor` is the part that runs again — see "The hazard of a linked
 directory" below for why it exists.
@@ -74,6 +85,12 @@ directory" below for why it exists.
 - **proto** — per-project pins belong in that project's own `.prototools`;
   the record here, `configs/proto/.prototools`, is only the global fallback
   proto uses when no project pin applies.
+- **claude** — `~/.claude/placeholders.tsv`, the map from each private value
+  to the placeholder git stores instead. It is untracked and nothing in this
+  repo restores it, so it needs an off-machine backup: without it
+  `settings.json` cannot be staged and the guards refuse every commit.
+  `~/.claude/settings.local.json` and everything else in `~/.claude` stay
+  machine-local.
 
 ## The hazard of a linked directory
 
@@ -96,6 +113,14 @@ severed link is silent in its own way: proto reports zero config files and
 reverts to built-in defaults, including turning telemetry back on, with
 nothing to warn you. That is what `bin/doctor` catches.
 
+claude has both kinds. `~/.claude/hooks` and `~/.claude/scripts` are directory
+links, so `rm -rf ~/.claude/hooks/` empties `configs/claude/hooks/` — though
+`git restore` recovers all of it, since nothing untracked lives there. The
+`settings.json` link is the one that hurts to lose: with its target gone,
+Claude Code reads empty settings without a word, and its next save writes a
+`settings.json` holding only that one change into `configs/claude/`.
+`bin/doctor` catches the dangling link; `git restore` undoes the rest.
+
 ## Secret scanning
 
 `lefthook` runs `gitleaks` over staged changes before every commit, once
@@ -104,6 +129,17 @@ because a clone without it is silently unprotected until the next push.
 `.github/workflows/gitleaks.yml` re-scans the full history on every push, as
 the backstop `--no-verify` cannot bypass. Rules live in `.gitleaks.toml`, which
 flags any committed email address that is not a GitHub noreply.
+
+A second guard keeps work terms out, and it covers every file and every commit
+message, not only `settings.json`. `bin/placeholders` runs in lefthook's
+`pre-commit`, `commit-msg` and `pre-push` hooks against the untracked map, and
+fails closed: without the map nothing can be committed. Cherry-pick, rebase,
+am and merge run no `pre-commit`, so `pre-push` is what sees their commits.
+`bin/placeholders` is also the git filter that swaps each private value in
+`configs/claude/settings.json` for its placeholder on the way into git and back
+on checkout; `.gitattributes` names the file, and the filter itself is
+per-clone git config (INSTALL.md step 2). Unlike gitleaks it cannot run in CI —
+the map is private — so `pre-push` is its backstop.
 
 ## Why any of this
 

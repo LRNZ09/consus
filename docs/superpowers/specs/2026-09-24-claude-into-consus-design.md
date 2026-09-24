@@ -1,7 +1,7 @@
 # claude — bringing the ~/.claude record into consus
 
 **Date:** 2026-09-24
-**Status:** designed
+**Status:** executed 2026-09-24
 **Amends:** `docs/superpowers/specs/2026-08-21-consus-migration-design.md`,
 whose "Deliberately out of scope" opens with "`~/.claude` keeps its own repo at
 its real path". That premise is what this change ends, so the line is edited
@@ -188,6 +188,14 @@ Accepted gaps, named so nobody rediscovers them:
   terminal sessions load no global instructions at all, and doctor's version
   test fails on purpose. The VS Code extension bundles its own 2.1.281 and is
   unaffected.
+- **Native loading sits behind a server-side flag.** In 2.1.281 it is the
+  built-in `agents-md` plugin, which loads only while the feature flag
+  `tengu_agents_md_mod` is on, as read at session start from the flag cache in
+  `~/.claude.json` (on when absent). The cache held `false` at least once on
+  2026-09-24, and a session that starts then loads no `AGENTS.md` anywhere —
+  no global instructions at all, in any directory. Restoring the `CLAUDE.md`
+  import would close the gap, and was considered and declined on 2026-09-24:
+  it lasts until the rollout settles.
 
 ## Private values: the filter and the guards
 
@@ -417,6 +425,13 @@ scratch `CLAUDE_CONFIG_DIR`; no real path was modified.
 - Brew's `claude-code` cask is 2.1.273; `claude-code@latest` is 2.1.281.
 - Nothing else on this machine reads `~/.claude/AGENTS.md`: there is no
   `~/.codex/AGENTS.md` or `~/.config/opencode/AGENTS.md`.
+- 2.1.281's `agents-md` plugin is gated by `isAvailable`, the server flag
+  `tengu_agents_md_mod` with a default of on. With the cached value `false`,
+  a debug log shows 15 plugins found instead of 16 and no `agents-md` line;
+  the next session, after the cache had refreshed, loaded `AGENTS.md` from a
+  directory with its own `CLAUDE.md`, so `instructionFiles` is honoured
+  whenever the plugin loads. Which process wrote `false` was not found: a
+  terminal 2.1.273 run and a bundled 2.1.281 run each left the cache as it was.
 - lefthook 2.1.14 passes `.git/COMMIT_EDITMSG` as `commit-msg`'s `{1}` and the
   remote's name as `pre-push`'s, with the ref lines on stdin under
   `use_stdin`; a failing command or script blocks the commit or push. It skips

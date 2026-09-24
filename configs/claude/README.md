@@ -39,6 +39,11 @@ to `claude-md-and-agents-md` so that repos with their own `CLAUDE.md` still load
 it. Sessions started outside `$HOME` do not, and neither do subagents that skip
 project instructions.
 
+Native loading also sits behind a server-side flag while Anthropic rolls it
+out: a session that starts while the flag is off loads no `AGENTS.md` at all.
+A `~/.claude/CLAUDE.md` holding `@AGENTS.md` would close that gap; it was
+declined on 2026-09-24.
+
 ## Private values
 
 Some values in `settings.json`, all of them under `autoMode`, are private. Git

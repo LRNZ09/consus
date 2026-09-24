@@ -14,6 +14,9 @@ which ends the `~/.proto` exception recorded under "Deliberately out of scope"
 below.
 **Amended 2026-09-24:** `~/.agents` joins as a file link for
 `agents.toml` — see `configs/agents/README.md`.
+**Amended 2026-09-24, again:** `~/.claude` joins as four links, with the
+placeholders filter and a work-term guard over the whole repo — see
+`docs/superpowers/specs/2026-09-24-claude-into-consus-design.md`.
 **Partly historical since 2026-09-23:** `bin/install` was deleted and its
 commands moved into the README. Everything this document says about the
 plan/apply split, the backup-directory convention, `--resolve`, `--expect-diff`
@@ -197,8 +200,8 @@ twice. The deny-by-default gitignore is what makes it possible — it renders
 
 ## Per-tool activation
 
-Measured against git 2.55.0, fish 4.8.0, ghostty 1.3.1, gh 2.96.0, proto 0.62.2
-and dotagents 3.1.0.
+Measured against git 2.55.0, fish 4.8.0, ghostty 1.3.1, gh 2.96.0, proto 0.62.2,
+dotagents 3.1.0, and Claude Code 2.1.273 and 2.1.281.
 
 | Tool | Default path | Mechanism | Liveness signal |
 | --- | --- | --- | --- |
@@ -207,6 +210,7 @@ and dotagents 3.1.0.
 | `ghostty` | App Support; stub in `~/.config/ghostty` | 1-line `config-file` include | `ghostty +validate-config` exits 1 |
 | `proto` | `$PROTO_HOME/.prototools`, default `~/.proto` | file link | `bin/doctor` `readlink` only |
 | `agents` | `$DOTAGENTS_HOME/agents.toml`, default `~/.agents` | file link | `bin/doctor` link test |
+| `claude` | `$CLAUDE_CONFIG_DIR`, default `~/.claude` | two file links, two directory links | `bin/doctor` link tests |
 | `zed` | — | **dropped** | settings-sync extensions are in flight |
 | `opencode` | — | **dropped** | no binary installed anywhere |
 | `gh` | — | **dropped** | 2-line payload; file link viable but not worth it |
@@ -711,6 +715,11 @@ assumed:
 - A severed `proto` link is silent and reverts proto to built-in defaults; the
   store is not under the repo, so no recursive removal inside it can reach the
   toolchains.
+- A dangling `~/.claude/settings.json` link is read as empty settings in
+  silence, and Claude Code's next save writes a near-empty
+  `configs/claude/settings.json` holding only that change. The rest of
+  `~/.claude` — sessions, transcripts, memory — is not under the repo, so
+  nothing run inside it can reach them.
 
 None of these can reach a credential, because no credential store is under any
 path this repo contains.
@@ -1516,9 +1525,11 @@ credentials, which invites someone to allow-list them later.
 
 ## Deliberately out of scope
 
-- `~/.claude` keeps its own repo at its real path. `~/.proto` does not: see
-  `docs/superpowers/specs/2026-09-21-proto-into-consus-design.md` for where its
-  record went and why.
+- Neither `~/.claude` nor `~/.proto` keeps its own repo any more: see
+  `docs/superpowers/specs/2026-09-24-claude-into-consus-design.md` and
+  `docs/superpowers/specs/2026-09-21-proto-into-consus-design.md` for where
+  each record went and why. The rest of `~/.claude` — sessions, transcripts,
+  plugins, memory — stays unmanaged.
 - `~/.agents` stays with the `dotagents` CLI, except `agents.toml`, which
   is `configs/agents/agents.toml` since 2026-09-24.
 - `zed/` is excluded. Settings-sync extensions for it are in flight, the same
