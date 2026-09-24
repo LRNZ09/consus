@@ -1,0 +1,112 @@
+#!/usr/bin/env bash
+# consus/bin/placeholders — keeps private values and work terms out of what git
+# stores. See configs/claude/README.md, "Private values".
+#
+# As the git filter on configs/claude/settings.json (.gitattributes names the
+# file; the filter itself is per-clone git config, INSTALL.md step 2):
+#   clean              settings.json -> blob: canonical JSON with placeholders;
+#                      fails closed
+#   smudge             blob -> settings.json: real values back; never fails, so
+#                      a broken map cannot make a checkout delete the file
+# As lefthook's guards (lefthook.yml), over the whole repo:
+#   check-msg FILE     commit-msg: the message in FILE
+#   check-staged       pre-commit: the lines the staged diff adds
+#   check-push REMOTE  pre-push: every message and added line in the commits
+#                      being pushed, read from git's ref lines on stdin
+# And by hand:
+#   check              stdin: fail if it names a private term
+#
+# Exit 0 passes, 1 refuses, 2 is a usage error. The map is
+# ~/.claude/placeholders.tsv, untracked; PLACEHOLDER_MAP overrides it. Without
+# it every guard refuses everything, on purpose.
+set -uo pipefail
+export LC_ALL=C PATH=$PATH:/opt/homebrew/bin
+map=${PLACEHOLDER_MAP:-$HOME/.claude/placeholders.tsv}
+
+fail() { echo "placeholders: $*" >&2; exit 1; }
+usage() { echo "usage: placeholders $*" >&2; exit 2; }
+
+# Swaps values for placeholders (clean) or back (smudge) in every JSON string,
+# longest first, and prints canonical JSON: sorted keys, tabs, no final newline.
+swap() {
+	[ -r "$map" ] || { echo "placeholders: can't read $map" >&2; return 1; }
+	jq -j -S --tab --rawfile m "$map" --arg mode "$1" '
+		([$m | split("\n")[] | select(test("^(#|guard(_cs)?\t|\\s*$)") | not) | split("\t")
+			| if length == 2 and all(length > 0) then . else error("bad map row: \(join("<TAB>"))") end]
+			| if (map(.[1]) | unique | length) < length then error("a placeholder is used twice") else . end
+			| map(if $mode == "clean" then . else reverse end)
+			| sort_by(-(.[0] | length))) as $rows
+		| walk(if type == "string" then reduce $rows[] as [$from, $to] (.; split($from) | join($to)) else . end)'
+}
+
+# Fails when stdin names a guarded term or a mapped value; prints each hit.
+# Its temp file is $buf, never $tmp: a local tmp here would shadow the one
+# clean's and smudge's EXIT trap removes, and leave their raw input behind.
+check() {
+	local buf kind rx ci= cs= hits
+	buf=$(mktemp "${TMPDIR:-/tmp}/placeholders.XXXXXX") || exit 1
+	cat > "$buf"
+	[ -r "$map" ] || { rm -f "$buf"; fail "can't read $map, refusing to pass anything"; }
+	while IFS=$'\t' read -r kind rx || [ -n "$kind" ]; do
+		case $kind in guard) ci=$rx ;; guard_cs) cs=$rx ;; esac
+	done < "$map"
+	[ -n "$ci" ] || { rm -f "$buf"; fail "no guard row in $map, refusing to pass anything"; }
+	# grep exits 2 on a regex it cannot compile and matches nothing, which would
+	# pass everything: each guard must compile first.
+	for rx in "$ci" "$cs"; do
+		[ -n "$rx" ] || continue
+		grep -E -e "$rx" /dev/null 2>/dev/null
+		[ $? -eq 1 ] || { rm -f "$buf"; fail "a guard row in $map is not a valid extended regex, refusing to pass anything"; }
+	done
+	hits=$({ grep -a -n -o -i -E "$ci" "$buf"
+		[ -z "$cs" ] || grep -a -n -o -E "$cs" "$buf"
+		awk -F '\t' '!/^#/ && NF == 2 && $1 !~ /^guard(_cs)?$/ { print $1 }' "$map" | grep -a -n -o -w -F -f - "$buf"
+	} | sort -u -t : -k 1n -k 2)
+	rm -f "$buf"
+	[ -z "$hits" ] || fail "private term(s) found; map them in $map or keep them in a work repo:
+$hits"
+}
+
+# Keeps added lines and file headers; a diff with nothing added is not an error.
+added_lines() { grep -a -E '^(\+|diff --git )' || [ $? -eq 1 ]; }
+
+case ${1:-} in
+	clean)
+		tmp=$(mktemp -d "${TMPDIR:-/tmp}/placeholders.XXXXXX") || exit 1
+		trap 'rm -rf "$tmp"' EXIT
+		cat > "$tmp/in"
+		swap clean < "$tmp/in" > "$tmp/out" || fail "settings.json is not valid JSON, or $map is unreadable"
+		jq -j -S --tab . "$tmp/in" | cmp -s - <(swap smudge < "$tmp/out") ||
+			fail "placeholders don't swap back to the same file; make them unique in $map"
+		check < "$tmp/out"
+		cat "$tmp/out"
+		;;
+	smudge)
+		tmp=$(mktemp -d "${TMPDIR:-/tmp}/placeholders.XXXXXX") || exit 1
+		trap 'rm -rf "$tmp"' EXIT
+		cat > "$tmp/in"
+		if swap smudge < "$tmp/in" > "$tmp/out" 2> "$tmp/err"; then
+			cat "$tmp/out"
+		else
+			echo "placeholders: $(head -1 "$tmp/err"); checked out with placeholders" >&2
+			cat "$tmp/in"
+		fi
+		;;
+	check) check ;;
+	check-msg)
+		[ -n "${2:-}" ] || usage "check-msg FILE"
+		check < "$2"
+		;;
+	check-staged) git diff --cached -U0 --no-renames --text | added_lines | check ;;
+	check-push)
+		[ -n "${2:-}" ] || usage "check-push REMOTE"
+		remote=$2
+		while read -r _ sha _ _; do
+			[ "$sha" = 0000000000000000000000000000000000000000 ] && continue
+			{ git log --format=%B "$sha" --not --remotes="$remote"
+				git log -p -U0 --no-renames --text --diff-merges=first-parent --format= "$sha" --not --remotes="$remote" | added_lines
+			} | check || exit 1
+		done
+		;;
+	*) usage "clean|smudge|check|check-msg FILE|check-staged|check-push REMOTE" ;;
+esac
