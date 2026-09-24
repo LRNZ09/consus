@@ -5,26 +5,40 @@
 # As the git filter on configs/claude/settings.json (.gitattributes names the
 # file; the filter itself is per-clone git config, INSTALL.md step 2):
 #   clean              settings.json -> blob: canonical JSON with placeholders;
-#                      fails closed
+#                      fails closed, and refuses any autoMode string but
+#                      $defaults that is not one whole placeholder
 #   smudge             blob -> settings.json: real values back; never fails, so
 #                      a broken map cannot make a checkout delete the file
 # As lefthook's guards (lefthook.yml), over the whole repo:
 #   check-msg FILE     commit-msg: the message in FILE
 #   check-staged       pre-commit: the lines the staged diff adds
-#   check-push REMOTE  pre-push: every message and added line in the commits
-#                      being pushed, read from git's ref lines on stdin
+#   check-push REMOTE  pre-push: the ref names, tag messages, commit messages
+#                      and added lines being pushed, from git's ref lines on
+#                      stdin
 # And by hand:
 #   check              stdin: fail if it names a private term
 #
 # Exit 0 passes, 1 refuses, 2 is a usage error. The map is
 # ~/.claude/placeholders.tsv, untracked; PLACEHOLDER_MAP overrides it. Without
-# it every guard refuses everything, on purpose.
+# it every guard refuses everything, on purpose. It holds one guard row (an
+# extended regex, matched in any case), at most one guard_cs row (matched as
+# written), and value<TAB><placeholder> rows. Every autoMode string is mapped
+# whole: the prose around a private value says as much as the value.
 set -uo pipefail
 export LC_ALL=C PATH=$PATH:/opt/homebrew/bin
 map=${PLACEHOLDER_MAP:-$HOME/.claude/placeholders.tsv}
 
 fail() { echo "placeholders: $*" >&2; exit 1; }
 usage() { echo "usage: placeholders $*" >&2; exit 2; }
+
+# The temp paths: clean's and smudge's directory, and check's buffer. Both hold
+# raw input — the unfiltered settings, the staged diff — so every way out
+# removes them, an interrupt included. check re-arms the traps: it often runs
+# as a pipeline's last command, in a subshell, where bash resets them.
+tmp= buf=
+cleanup() { [ -z "$tmp$buf" ] || rm -rf -- ${tmp:+"$tmp"} ${buf:+"$buf"}; }
+arm() { trap cleanup EXIT; trap 'exit 129' HUP; trap 'exit 130' INT; trap 'exit 143' TERM; }
+arm
 
 # Swaps values for placeholders (clean) or back (smudge) in every JSON string,
 # longest first, and prints canonical JSON: sorted keys, tabs, no final newline.
@@ -40,29 +54,37 @@ swap() {
 }
 
 # Fails when stdin names a guarded term or a mapped value; prints each hit.
-# Its temp file is $buf, never $tmp: a local tmp here would shadow the one
-# clean's and smudge's EXIT trap removes, and leave their raw input behind.
+# Its temp file is the global $buf, never a local: the EXIT trap removes it
+# along with clean's $tmp, and a local would hide it from the trap.
 check() {
-	local buf kind rx ci= cs= hits
+	local kind rx ci= cs= nci=0 ncs=0 hits
+	arm
 	buf=$(mktemp "${TMPDIR:-/tmp}/placeholders.XXXXXX") || exit 1
 	cat > "$buf"
-	[ -r "$map" ] || { rm -f "$buf"; fail "can't read $map, refusing to pass anything"; }
+	[ -r "$map" ] || fail "can't read $map, refusing to pass anything"
 	while IFS=$'\t' read -r kind rx || [ -n "$kind" ]; do
-		case $kind in guard) ci=$rx ;; guard_cs) cs=$rx ;; esac
+		case $kind in
+		guard) ci=$rx nci=$((nci + 1)) ;;
+		guard_cs) cs=$rx ncs=$((ncs + 1)) ;;
+		esac
 	done < "$map"
-	[ -n "$ci" ] || { rm -f "$buf"; fail "no guard row in $map, refusing to pass anything"; }
+	[ -n "$ci" ] || fail "no guard row in $map, refusing to pass anything"
+	# Only the last row of each kind would count, and nothing would say so.
+	[ "$nci" -eq 1 ] || fail "$map has $nci guard rows; join them with | into one"
+	[ "$ncs" -le 1 ] || fail "$map has $ncs guard_cs rows; join them with | into one"
 	# grep exits 2 on a regex it cannot compile and matches nothing, which would
 	# pass everything: each guard must compile first.
 	for rx in "$ci" "$cs"; do
 		[ -n "$rx" ] || continue
 		grep -E -e "$rx" /dev/null 2>/dev/null
-		[ $? -eq 1 ] || { rm -f "$buf"; fail "a guard row in $map is not a valid extended regex, refusing to pass anything"; }
+		[ $? -eq 1 ] || fail "a guard row in $map is not a valid extended regex, refusing to pass anything"
 	done
 	hits=$({ grep -a -n -o -i -E "$ci" "$buf"
 		[ -z "$cs" ] || grep -a -n -o -E "$cs" "$buf"
 		awk -F '\t' '!/^#/ && NF == 2 && $1 !~ /^guard(_cs)?$/ { print $1 }' "$map" | grep -a -n -o -w -F -f - "$buf"
 	} | sort -u -t : -k 1n -k 2)
 	rm -f "$buf"
+	buf=
 	[ -z "$hits" ] || fail "private term(s) found; map them in $map or keep them in a work repo:
 $hits"
 }
@@ -73,9 +95,14 @@ added_lines() { grep -a -E '^(\+|diff --git )' || [ $? -eq 1 ]; }
 case ${1:-} in
 	clean)
 		tmp=$(mktemp -d "${TMPDIR:-/tmp}/placeholders.XXXXXX") || exit 1
-		trap 'rm -rf "$tmp"' EXIT
 		cat > "$tmp/in"
 		swap clean < "$tmp/in" > "$tmp/out" || fail "settings.json is not valid JSON, or $map is unreadable"
+		# autoMode is opaque: git stores a token for each whole string, never
+		# the prose around one. The refusal names no string; any may be private.
+		jq -e '[.autoMode? | .. | strings
+			| select(. != "$defaults" and (test("\\A<[a-z0-9][a-z0-9-]*>\\z") | not))] | length == 0' \
+			"$tmp/out" >/dev/null 2>&1 ||
+			fail "an autoMode string is not a single placeholder; map the whole string in $map"
 		jq -j -S --tab . "$tmp/in" | cmp -s - <(swap smudge < "$tmp/out") ||
 			fail "placeholders don't swap back to the same file; make them unique in $map"
 		check < "$tmp/out"
@@ -83,12 +110,12 @@ case ${1:-} in
 		;;
 	smudge)
 		tmp=$(mktemp -d "${TMPDIR:-/tmp}/placeholders.XXXXXX") || exit 1
-		trap 'rm -rf "$tmp"' EXIT
 		cat > "$tmp/in"
 		if swap smudge < "$tmp/in" > "$tmp/out" 2> "$tmp/err"; then
 			cat "$tmp/out"
 		else
-			echo "placeholders: $(head -1 "$tmp/err"); checked out with placeholders" >&2
+			err=$(head -1 "$tmp/err")
+			echo "placeholders: ${err#placeholders: }; checked out with placeholders" >&2
 			cat "$tmp/in"
 		fi
 		;;
@@ -97,14 +124,22 @@ case ${1:-} in
 		[ -n "${2:-}" ] || usage "check-msg FILE"
 		check < "$2"
 		;;
-	check-staged) git diff --cached -U0 --no-renames --text | added_lines | check ;;
+	# The guards parse porcelain diffs, which user config can reshape: colour
+	# codes break the ^+ match, and an external diff or a textconv driver can
+	# print anything. --no-color, --no-ext-diff and --no-textconv turn all
+	# three off, whatever the config says; check-push passes them too.
+	check-staged) git diff --cached --no-color --no-ext-diff --no-textconv -U0 --no-renames --text | added_lines | check ;;
 	check-push)
 		[ -n "${2:-}" ] || usage "check-push REMOTE"
 		remote=$2
-		while read -r _ sha _ _; do
+		# A deletion publishes nothing, so it is skipped: refusing it would keep
+		# a leaked branch name on the remote.
+		while read -r lref sha rref _; do
 			[ "$sha" = 0000000000000000000000000000000000000000 ] && continue
-			{ git log --format=%B "$sha" --not --remotes="$remote"
-				git log -p -U0 --no-renames --text --diff-merges=first-parent --format= "$sha" --not --remotes="$remote" | added_lines
+			{ printf '%s\n' "$lref" "$rref"
+				[ "$(git cat-file -t "$sha" 2>/dev/null)" != tag ] || git cat-file tag "$sha"
+				git log --format=%B "$sha" --not --remotes="$remote"
+				git log -p --no-color --no-ext-diff --no-textconv -U0 --no-renames --text --diff-merges=first-parent --format= "$sha" --not --remotes="$remote" | added_lines
 			} | check || exit 1
 		done
 		;;

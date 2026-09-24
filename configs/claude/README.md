@@ -46,17 +46,20 @@ declined on 2026-09-24.
 
 ## Private values
 
-Some values in `settings.json`, all of them under `autoMode`, are private. Git
-stores `<placeholder>` tokens instead; the file on disk keeps the real values.
-`bin/placeholders` swaps them as a git filter using the untracked map
-`~/.claude/placeholders.tsv`, and stores the file in one canonical layout:
-sorted keys, tabs.
+The private values in `settings.json` are all under `autoMode`, and so is the
+prose around them, which can say as much as the values do. So every `autoMode`
+string but `$defaults` is mapped whole: git stores one `<placeholder>` token
+per string, and the file on disk keeps the real text. `bin/placeholders` swaps
+them as a git filter using the untracked map `~/.claude/placeholders.tsv`, and
+stores the file in one canonical layout: sorted keys, tabs. It refuses any
+`autoMode` string that is not one whole token.
 
-- **Add a map row before staging a new private value** — including one that
-  `/permissions` or `/auto-mode-setup` wrote. Until the row exists, `git add`
-  and even `git diff` on `settings.json` fail with "private term(s) found".
-  Map it rather than `git restore` the file: the restore would silently throw
-  the new entry away.
+- **Add a map row for every new `autoMode` string before staging it** —
+  including one that `/permissions` or `/auto-mode-setup` wrote: the whole
+  string, a tab, and a token of its own, such as `<automode-soft-deny-3>`.
+  Until the row exists, `git add` and even `git diff` on `settings.json` fail
+  with "an autoMode string is not a single placeholder". Map it rather than
+  `git restore` the file: the restore would silently throw the new entry away.
 - **After Claude Code saves `settings.json`, `git status` may list it while
   `git diff` is empty.** Claude Code re-serializes the file on every save, and
   the canonical layout makes what git stores identical. `git add` clears it.
