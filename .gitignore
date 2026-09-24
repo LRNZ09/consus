@@ -29,3 +29,9 @@
 # stray proto run inside this directory drops one here. The record is the
 # pins; the lockfile is inert at global scope and is not tracked.
 /configs/proto/.protolock
+
+# Claude Code saves settings.json by temp file and rename next to the link
+# target, so a save interrupted mid-write leaves the temp file here. It holds
+# the real, unfiltered values, and the filter only applies to settings.json:
+# it must never be stageable.
+/configs/claude/*.tmp.*

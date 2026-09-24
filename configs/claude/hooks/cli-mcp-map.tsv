@@ -1,0 +1,16 @@
+# CLIs that have a connected MCP equivalent.
+# When one of these is about to run via Bash, the pre-bash-prefer-mcp hook
+# reminds you to prefer the MCP over the CLI.
+#
+# Format (per line):  <cli-binary><TAB><human label for the MCP>
+# Lines starting with # and blank lines are ignored.
+# Add a row to cover a new tool — no script change needed.
+#
+gh	a GitHub MCP
+twg	the Atlassian plugin MCP (Jira, Confluence and Bitbucket; find operations with `discover`)
+
+# Examples to uncomment once the matching MCP is connected:
+# glab	a GitLab MCP
+# aws	an AWS MCP
+# stripe	the Stripe MCP
+# kubectl	a Kubernetes MCP

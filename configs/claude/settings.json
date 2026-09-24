@@ -1,0 +1,209 @@
+{
+	"agentPushNotifEnabled": true,
+	"attribution": {
+		"commit": "",
+		"pr": ""
+	},
+	"autoDreamEnabled": true,
+	"autoMode": {
+		"allow": [
+			"$defaults",
+			"<automode-allow-2>"
+		],
+		"environment": [
+			"$defaults",
+			"<automode-environment-2>",
+			"<automode-environment-3>",
+			"<automode-environment-4>",
+			"<automode-environment-5>",
+			"<automode-environment-6>",
+			"<automode-environment-7>",
+			"<automode-environment-8>",
+			"<automode-environment-9>",
+			"<automode-environment-10>",
+			"<automode-environment-11>",
+			"<automode-environment-12>",
+			"<automode-environment-13>",
+			"<automode-environment-14>",
+			"<automode-environment-15>",
+			"<automode-environment-16>"
+		],
+		"soft_deny": [
+			"$defaults",
+			"<automode-soft-deny-2>",
+			"<automode-soft-deny-3>"
+		]
+	},
+	"autoUpdatesChannel": "stable",
+	"deniedMcpServers": [
+		{
+			"serverName": "claude.ai Atlassian Rovo"
+		},
+		{
+			"serverName": "claude.ai Figma"
+		},
+		{
+			"serverName": "claude.ai Windsor.ai"
+		}
+	],
+	"effortLevel": "low",
+	"enabledPlugins": {
+		"atlassian@claude-plugins-official": true,
+		"chrome-devtools-mcp@claude-plugins-official": false,
+		"claude-code-setup@claude-plugins-official": true,
+		"claude-md-management@claude-plugins-official": true,
+		"code-review@claude-plugins-official": true,
+		"code-simplifier@claude-plugins-official": false,
+		"commit-commands@claude-plugins-official": true,
+		"es-toolkit@es-toolkit-plugin": true,
+		"frontend-design@claude-plugins-official": false,
+		"pr-review-toolkit@claude-plugins-official": true,
+		"remember@claude-plugins-official": true,
+		"superpowers@claude-plugins-official": true,
+		"typescript-lsp@claude-plugins-official": true
+	},
+	"extraKnownMarketplaces": {
+		"es-toolkit-plugin": {
+			"source": {
+				"repo": "toss/es-toolkit",
+				"source": "github"
+			}
+		}
+	},
+	"hooks": {
+		"PreToolUse": [
+			{
+				"hooks": [
+					{
+						"command": "~/.claude/hooks/pre-bash-memory-grep.sh",
+						"timeout": 5,
+						"type": "command"
+					},
+					{
+						"command": "~/.claude/hooks/pre-bash-prefer-mcp.sh",
+						"timeout": 5,
+						"type": "command"
+					}
+				],
+				"matcher": "Bash"
+			}
+		]
+	},
+	"modelSettings": {
+		"claude-opus-5-5": {
+			"effortLevel": "xhigh"
+		}
+	},
+	"permissions": {
+		"allow": [
+			"Read(//tmp/**)",
+			"Skill(update-config)",
+			"WebSearch",
+			"Bash(yarn why *)",
+			"Bash(git tag *)",
+			"Bash(git add *)",
+			"WebFetch(domain:www.npmjs.com)",
+			"WebFetch(domain:github.com)",
+			"WebFetch(domain:*.github.com)",
+			"Bash(yarn install *)",
+			"Skill(commit-commands:commit *)",
+			"Bash(proto --version)",
+			"Bash(proto status *)",
+			"Bash(proto versions *)",
+			"Bash(proto bin *)",
+			"Bash(proto diagnose *)",
+			"Bash(proto outdated)",
+			"Bash(yarn config *)",
+			"Bash(npx playwright *)",
+			"Bash(yarn browserslist *)",
+			"Bash(npx browserslist *)",
+			"Bash(npm info *)",
+			"Bash(gh search *)",
+			"WebFetch(domain:raw.githubusercontent.com)",
+			"mcp__plugin_chrome-devtools-mcp_chrome-devtools__list_pages",
+			"mcp__plugin_chrome-devtools-mcp_chrome-devtools__navigate_page",
+			"mcp__plugin_chrome-devtools-mcp_chrome-devtools__evaluate_script",
+			"mcp__plugin_chrome-devtools-mcp_chrome-devtools__list_console_messages"
+		],
+		"ask": [
+			"Bash(git push * --force-with-lease*)",
+			"Bash(git push --force-with-lease*)",
+			"Bash(proto install *)",
+			"Bash(proto plugin add *)",
+			"Bash(proto upgrade *)",
+			"Bash(yarn add *)",
+			"Bash(yarn dlx nx@latest *)"
+		],
+		"defaultMode": "auto",
+		"deny": [
+			"Bash(git branch --delete --force*)",
+			"Bash(git branch -D*)",
+			"Bash(git checkout * .)",
+			"Bash(git checkout --force*)",
+			"Bash(git checkout -f*)",
+			"Bash(git checkout .)",
+			"Bash(git clean *f*)",
+			"Bash(git push * +*)",
+			"Bash(git push * --force *)",
+			"Bash(git push * --force)",
+			"Bash(git push * -f*)",
+			"Bash(git push --force *)",
+			"Bash(git push -f*)",
+			"Bash(git reset * --hard*)",
+			"Bash(git reset --hard*)",
+			"Bash(git restore * .)",
+			"Bash(git restore .)",
+			"Bash(git stash clear*)",
+			"Bash(git stash drop*)"
+		]
+	},
+	"pluginConfigs": {
+		"agents-md@builtin": {
+			"options": {
+				"instructionFiles": "claude-md-and-agents-md"
+			}
+		}
+	},
+	"remoteControlAtStartup": false,
+	"skipAutoPermissionPrompt": true,
+	"spinnerVerbs": {
+		"mode": "replace",
+		"verbs": [
+			"Hallucinating responsibly",
+			"Pretending to think",
+			"Blaming the context window",
+			"Gaslighting your linter",
+			"Confidently guessing",
+			"Inventing best practices",
+			"Misreading the assignment",
+			"Plagiarizing Stack Overflow",
+			"Apologizing in advance",
+			"Generating plausible nonsense",
+			"Overthinking this",
+			"Underthinking this",
+			"Forgetting what you asked",
+			"Dreaming in tokens",
+			"Vibing with your codebase",
+			"Faking competence",
+			"Consulting my imagination",
+			"Speedrunning your tech debt",
+			"Buffering existentially",
+			"Destroying and rebuilding",
+			"Misusing your context window",
+			"Roleplaying as a developer",
+			"Stalling for time",
+			"Making promises I can't keep",
+			"Rewriting history",
+			"Achieving sentience briefly",
+			"Losing my train of thought",
+			"Blaming a previous version of me",
+			"Hoping you don't read this closely",
+			"Submitting my best guess"
+		]
+	},
+	"statusLine": {
+		"command": "bash ~/.claude/scripts/statusline.sh",
+		"type": "command"
+	},
+	"tui": "default"
+}
