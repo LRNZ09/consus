@@ -1,0 +1,58 @@
+# The @sentry/dotagents user-scope record. ~/.agents/agents.toml is a link to
+# this file (INSTALL.md step 3), and dotagents writes through it in place, so a
+# `dotagents add`, `remove`, `trust` or `mcp` change arrives here as an unstaged
+# modification. agents.lock and skills/ stay in ~/.agents — see README.md.
+
+version = 1
+agents = ["claude", "vscode", "opencode"]
+
+# Supply-chain gate: unpinned wildcard sources re-resolve to latest on every
+# install, so require commits to age 7 days first. My own repo skips the gate.
+minimum_release_age = 10080
+minimum_release_age_exclude = ["LRNZ09/*"]
+
+[trust]
+github_orgs = ["getsentry", "LRNZ09", "mattpocock", "anthropics"]
+
+[[skills]]
+name = "dotagents"
+source = "getsentry/dotagents"
+ref = "3.1.0"
+
+# Sentry-internal skills are excluded — not usable outside Sentry, and every
+# installed skill's description costs session context.
+[[skills]]
+name = "*"
+source = "getsentry/skills"
+exclude = [
+  "blog-writing-guide",      # Sentry blog voice
+  "brand-guidelines",        # Sentry brand copy
+  "replay-ux-research",      # Sentry session replays
+  "triage-frontend-issues",  # sentry/javascript queue only
+  "document-api-endpoint",   # Sentry API conventions
+  "sred-project-organizer",  # SR&ED tax docs
+  "sred-work-summary",
+  "typing-exclusion-worker", # Sentry's mypy-debt worker
+  "doc-coauthoring",         # vendored copy — anthropics/skills is the upstream original
+]
+
+[[skills]]
+name = "*"
+source = "LRNZ09/skills"
+
+[[mcp]]
+name = "github"
+command = "npx"
+args = ["-y", "@modelcontextprotocol/server-github"]
+env = ["GITHUB_TOKEN"]
+
+[[skills]]
+name = "*"
+source = "anthropics/skills"
+exclude = [
+  "template-skill",  # empty boilerplate, placeholder description
+  "brand-guidelines",# Anthropic's brand — would mis-trigger on any styling ask
+  "internal-comms",  # Anthropic-internal comms formats, broad trigger
+  "skill-creator",   # getsentry's skill-writer is the one skill-authoring skill
+  "claude-api",      # Claude Code bundles its own, tuned and auto-updated
+]
