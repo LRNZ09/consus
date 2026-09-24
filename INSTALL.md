@@ -15,8 +15,6 @@ refuse rather than clobber — see "Traps".
    manifests with. Both are in the [brewfile][brewfile] too, so a machine built
    from that already has them.
 
-[brewfile]: https://github.com/LRNZ09/brewfile
-
 2. The repo's own two settings. `~/.config` is mode 700 and the links lead
    here, but a fresh clone under `~/Developer` is 755; `lefthook install` is
    needed once per clone, so gitleaks scans each commit as well as every push:
@@ -56,10 +54,12 @@ refuse rather than clobber — see "Traps".
    fisher update                        # materialises the rest from fish_plugins
    ```
 
-6. The skills. `npx` comes from step 4's node, and this must come after the
-   link: run first, dotagents writes its own default `agents.toml` there.
+6. The skills. `npx` is only on `PATH` via step 5's fish, which proto's
+   `conf.d/proto.fish` activates — zsh never gets it from `proto install`
+   alone. Run this in that same fish shell, and after the link: run first,
+   dotagents writes its own default `agents.toml` there.
 
-   ```sh
+   ```fish
    npx @sentry/dotagents --user install
    ```
 
@@ -93,3 +93,5 @@ refuse rather than clobber — see "Traps".
   [README](README.md).
 - There used to be a 714-line `bin/install` doing all of the above. It was
   built for a provisioner that no longer exists; step 3 is what it did.
+
+[brewfile]: https://github.com/LRNZ09/brewfile
