@@ -8,11 +8,13 @@ a symlink into this repo:
 ~/.config/git          →  <this clone>/configs/git
 ~/.config/fish         →  <this clone>/configs/fish
 ~/.proto/.prototools   →  <this clone>/configs/proto/.prototools
+~/.agents/agents.toml  →  <this clone>/configs/agents/agents.toml
 ```
 
-proto is the one tool whose path is not under `~/.config`, because proto never
-reads `XDG_CONFIG_HOME`, and the one whose link is on a file rather than a
-directory, because the 2.3 GB store is the directory.
+proto and agents are the two tools whose paths are not under `~/.config`,
+because neither proto nor dotagents reads `XDG_CONFIG_HOME`, and the two
+whose links are on a file rather than a directory: proto's 2.3 GB store and
+dotagents' installed skills are the directories.
 
 Ghostty is the exception. Its winning config path on macOS is
 `~/Library/Application Support/com.mitchellh.ghostty/config`, which no symlink
@@ -32,19 +34,24 @@ here.
 - **configs/proto** — the global record, `.prototools`, nine pins — every
   toolchain this record owns. The 2.3 GB store itself stays outside the repo,
   at `~/.proto`.
+- **configs/agents** — `agents.toml`, the `@sentry/dotagents` user-scope
+  record. The lock and the installed skills stay in `~/.agents`; the
+  directory's README says why, and what not to run there.
 
 Deliberately not managed: **zed**, whose settings-sync extensions are in flight
 and would compete with anything versioned here; **opencode**, which has no
-binary installed anywhere on this machine; **gh**, whose entire payload is
+binary installed anywhere on this machine — dotagents still writes its MCP
+config under `~/.config/opencode`, because the agents record keeps it as a
+target, but nothing there is managed here; **gh**, whose entire payload is
 `git_protocol: https` plus one alias; and **micro**, whose payload is literally
 `{}`.
 
 ## A fresh machine
 
 The commands are in [INSTALL.md](INSTALL.md): the prerequisites, `chmod 700`
-and `lefthook install`, the three links and the ghostty include, the
-toolchains, fisher, and `bin/doctor` to verify. Six steps, run once per
-machine.
+and `lefthook install`, the four links and the ghostty include, the
+toolchains, fisher, the skills, and `bin/doctor` to verify. Seven steps, run
+once per machine.
 
 `bin/doctor` is the part that runs again — see "The hazard of a linked
 directory" below for why it exists.

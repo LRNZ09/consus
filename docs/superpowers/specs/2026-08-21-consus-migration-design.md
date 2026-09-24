@@ -12,6 +12,8 @@ describes a superseded layout — see "What this repo guarantees a provisioner".
 **Amended-by:** `docs/superpowers/specs/2026-09-21-proto-into-consus-design.md`,
 which ends the `~/.proto` exception recorded under "Deliberately out of scope"
 below.
+**Amended 2026-09-24:** `~/.agents` joins as a file link for
+`agents.toml` — see `configs/agents/README.md`.
 **Partly historical since 2026-09-23:** `bin/install` was deleted and its
 commands moved into the README. Everything this document says about the
 plan/apply split, the backup-directory convention, `--resolve`, `--expect-diff`
@@ -195,8 +197,8 @@ twice. The deny-by-default gitignore is what makes it possible — it renders
 
 ## Per-tool activation
 
-Measured against git 2.55.0, fish 4.8.0, ghostty 1.3.1, gh 2.96.0 and
-proto 0.62.2.
+Measured against git 2.55.0, fish 4.8.0, ghostty 1.3.1, gh 2.96.0, proto 0.62.2
+and dotagents 3.1.0.
 
 | Tool | Default path | Mechanism | Liveness signal |
 | --- | --- | --- | --- |
@@ -204,6 +206,7 @@ proto 0.62.2.
 | `fish` | `~/.config/fish` | directory link | `bin/doctor` `readlink` only |
 | `ghostty` | App Support; stub in `~/.config/ghostty` | 1-line `config-file` include | `ghostty +validate-config` exits 1 |
 | `proto` | `$PROTO_HOME/.prototools`, default `~/.proto` | file link | `bin/doctor` `readlink` only |
+| `agents` | `$DOTAGENTS_HOME/agents.toml`, default `~/.agents` | file link | `bin/doctor` link test (dangling-aware) |
 | `zed` | — | **dropped** | settings-sync extensions are in flight |
 | `opencode` | — | **dropped** | no binary installed anywhere |
 | `gh` | — | **dropped** | 2-line payload; file link viable but not worth it |
@@ -386,7 +389,9 @@ runs, and it was the one entry in the activation table that could not be
 verified at all. It also drags in three gitignore rules for `node_modules/`,
 `package.json` and `bun.lock`, and a note that a clone does not restore the pin
 on `@opencode-ai/plugin` 1.1.39. Re-add it, as a directory link like the others,
-when the binary is actually installed.
+when the binary is actually installed. Since 2026-09-24 dotagents writes its
+MCP config into `~/.config/opencode`, because the agents record keeps
+opencode as a target; nothing there is managed here.
 
 **gh.** Dropped on payload size, not on mechanism — the previous
 disqualification no longer holds. Measured: gh writes `config.yml` in place and
@@ -1514,7 +1519,8 @@ credentials, which invites someone to allow-list them later.
 - `~/.claude` keeps its own repo at its real path. `~/.proto` does not: see
   `docs/superpowers/specs/2026-09-21-proto-into-consus-design.md` for where its
   record went and why.
-- `~/.agents` stays with the `dotagents` CLI.
+- `~/.agents` stays with the `dotagents` CLI, except `agents.toml`, which
+  is `configs/agents/agents.toml` since 2026-09-24.
 - `zed/` is excluded. Settings-sync extensions for it are in flight, the same
   way VS Code syncs itself, so versioning its config here would compete with the
   mechanism that is about to own it. `~/.config/zed` stays a real directory,

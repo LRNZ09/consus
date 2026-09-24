@@ -26,14 +26,15 @@ refuse rather than clobber — see "Traps".
    lefthook install
    ```
 
-3. The three links and the ghostty include. `git` goes last on purpose: from
+3. The four links and the ghostty include. `git` goes last on purpose: from
    the moment anything displaces `~/.config/git` until the link lands there is
    no global git config at all, so that window is kept to one command.
 
    ```sh
-   mkdir -p ~/.config ~/.config/ghostty ~/.proto
+   mkdir -p ~/.config ~/.config/ghostty ~/.proto ~/.agents
    ln -s "$PWD/configs/fish" ~/.config/fish
    ln -s "$PWD/configs/proto/.prototools" ~/.proto/.prototools
+   ln -s "$PWD/configs/agents/agents.toml" ~/.agents/agents.toml
    printf 'config-file = %s\n' "$PWD/configs/ghostty/config.ghostty" \
    	> ~/.config/ghostty/config.ghostty
    ln -s "$PWD/configs/git" ~/.config/git
@@ -55,7 +56,14 @@ refuse rather than clobber — see "Traps".
    fisher update                        # materialises the rest from fish_plugins
    ```
 
-6. Verify:
+6. The skills. `npx` comes from step 4's node, and this must come after the
+   link: run first, dotagents writes its own default `agents.toml` there.
+
+   ```sh
+   npx @sentry/dotagents --user install
+   ```
+
+7. Verify:
 
    ```sh
    ./bin/doctor
@@ -76,6 +84,9 @@ refuse rather than clobber — see "Traps".
   once, there will be. Move it aside rather than deleting it:
   `mv ~/.config/fish ~/config-fish.bak`. The old directory may hold
   `fish_variables`, which is every `set -U` value this machine had.
+- On a machine where dotagents already ran, `~/.agents/agents.toml` is a
+  regular file and `ln -s` refuses too. Move it aside the same way:
+  `mv ~/.agents/agents.toml ~/agents.toml.bak`.
 - `~/.config/git` and `~/.config/fish` are links **into this repo**, so
   `rm -rf ~/.config/fish/` — with the trailing slash — follows the link and
   empties `configs/fish/` here. See "The hazard of a linked directory" in the
