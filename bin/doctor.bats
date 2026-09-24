@@ -337,8 +337,8 @@ require_link() {
 		bad=1
 	}
 	[ "$bad" -eq 0 ] || {
-		echo "run the three git config filter.placeholders lines of INSTALL.md step 2 —"
-		echo "not the step's last line, which is for a fresh clone only"
+		echo "run the three git config filter.placeholders lines of INSTALL.md step 2;"
+		echo "the step's last line is guarded and safe to re-run"
 		return 1
 	}
 }
@@ -346,13 +346,47 @@ require_link() {
 @test "the placeholder map is readable" {
 	# Without it every guard fails closed and nothing can be committed; this
 	# names the file before a commit does. It is untracked and exists nowhere
-	# else on this machine.
+	# else on this machine. Exactly one guard row: the guards refuse a second
+	# one, which used to replace the first in silence.
+	local rows
 	[ -r "$PLACEHOLDER_MAP" ] || {
 		echo "$PLACEHOLDER_MAP is missing or unreadable — restore it from backup"
 		return 1
 	}
-	grep -q "^guard$(printf '\t')" "$PLACEHOLDER_MAP" || {
+	rows=$(grep -c "^guard$(printf '\t')" "$PLACEHOLDER_MAP" || true)
+	[ "$rows" -gt 0 ] || {
 		echo "$PLACEHOLDER_MAP has no guard row, so every guard refuses everything"
+		return 1
+	}
+	[ "$rows" -eq 1 ] || {
+		echo "$PLACEHOLDER_MAP has $rows guard rows, so every guard refuses everything;"
+		echo "join them with | into one"
+		return 1
+	}
+}
+
+@test "the live settings.json holds real values, not placeholders" {
+	# smudge never fails, so a checkout that cannot resolve a token — the map
+	# missing or short of a row another machine added, a conflicted merge,
+	# INSTALL.md step 2 run before the map is back — leaves it in the live file
+	# in silence, and autoMode then describes a token, not the host. Once the
+	# map is back, git status and git add fail with a misleading message. No
+	# token git stores may appear in the live file. Prints token names only:
+	# they are public, the values are not.
+	local live="$RECORD/claude/settings.json" tokens token found=
+	[ -r "$PLACEHOLDER_MAP" ] || skip "the map is unreadable — see the map test"
+	[ -f "$live" ] || skip "$live is missing — see its link test"
+	tokens=$(git -C "$REPO" show :configs/claude/settings.json 2>/dev/null |
+		grep -o '<[a-z0-9][a-z0-9-]*>' | sort -u || true)
+	for token in $tokens; do
+		if grep -qF -- "$token" "$live"; then
+			found="$found $token"
+		fi
+	done
+	[ -z "$found" ] || {
+		echo "configs/claude/settings.json holds placeholders, not real values:$found"
+		echo "with the map restored, run in $REPO:"
+		echo "  bin/placeholders smudge < configs/claude/settings.json > configs/claude/settings.json.tmp.fix && mv configs/claude/settings.json.tmp.fix configs/claude/settings.json"
 		return 1
 	}
 }
@@ -370,9 +404,13 @@ teardown_file() {
 	# The tools read the working tree, so the machine and the working tree agree
 	# by construction. A dirty tree means the *committed* record has not caught
 	# up, and the design wants that visible rather than hidden.
+	# git status fails outright when the filter refuses settings.json, and
+	# its own message then misleads: say so rather than swallow it.
 	local queue
-	queue=$(git -C "$REPO" status --porcelain 2>/dev/null || true)
-	if [ -n "$queue" ]; then
+	if ! queue=$(git -C "$REPO" status --porcelain 2>/dev/null); then
+		echo "# note: git status failed — usually a private value in settings.json" >&3
+		echo "#       the map does not cover (see configs/claude/README.md)." >&3
+	elif [ -n "$queue" ]; then
 		echo "# note: uncommitted changes — git restore <path> if the record was" >&3
 		echo "#       right, git commit if the machine was:" >&3
 		printf '%s\n' "$queue" | sed 's|^|#         |' >&3
