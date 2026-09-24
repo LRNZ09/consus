@@ -139,7 +139,9 @@ am and merge run no `pre-commit`, so `pre-push` is what sees their commits.
 `configs/claude/settings.json` for its placeholder on the way into git and back
 on checkout; `.gitattributes` names the file, and the filter itself is
 per-clone git config (INSTALL.md step 2). Unlike gitleaks it cannot run in CI —
-the map is private — so `pre-push` is its backstop.
+the map is private — so `pre-push` is its backstop. `settings.json`'s deny rules
+keep Claude Code from retrying a refused commit or push with the hooks off:
+`--no-verify`, `git commit -n`, or a `LEFTHOOK=0` or `LEFTHOOK=false` prefix.
 
 ## Why any of this
 

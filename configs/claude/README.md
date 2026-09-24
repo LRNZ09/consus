@@ -57,8 +57,10 @@ stores the file in one canonical layout: sorted keys, tabs. It refuses any
 - **Add a map row for every new `autoMode` string before staging it** —
   including one that `/permissions` or `/auto-mode-setup` wrote: the whole
   string, a tab, and a token of its own, such as `<automode-soft-deny-3>`.
-  Until the row exists, `git add` and even `git diff` on `settings.json` fail
-  with "an autoMode string is not a single placeholder". Map it rather than
+  Until the row exists, `git add`, `git diff` and at times even `git status`
+  fail on `settings.json` with "an autoMode string is not a single
+  placeholder" — or "private term(s) found", for an unmapped value elsewhere
+  in the file; `bin/doctor` notes a failing `git status`. Map it rather than
   `git restore` the file: the restore would silently throw the new entry away.
 - **After Claude Code saves `settings.json`, `git status` may list it while
   `git diff` is empty.** Claude Code re-serializes the file on every save, and
@@ -68,6 +70,16 @@ stores the file in one canonical layout: sorted keys, tabs. It refuses any
   closed.
 - **Commit with the git CLI**, or a client that runs it, as VS Code's does.
   libgit2-based clients skip external filters and hooks.
+- **If the live `settings.json` holds placeholders, `autoMode` describes
+  tokens, not hosts.** smudge never fails, so a checkout that cannot resolve a
+  token — the map missing or short of a row another machine added, a
+  conflicted merge — leaves it there in silence, and once the map is back git
+  refuses the file with "placeholders don't swap back". `bin/doctor` names the
+  tokens. With the map restored, run in the clone root:
+
+  ```sh
+  bin/placeholders smudge < configs/claude/settings.json > configs/claude/settings.json.tmp.fix && mv configs/claude/settings.json.tmp.fix configs/claude/settings.json
+  ```
 
 ## Traps
 

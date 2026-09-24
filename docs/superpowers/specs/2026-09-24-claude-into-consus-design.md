@@ -134,6 +134,9 @@ Three changes from what dotclaude tracks:
 - **`settings.json` gains `pluginConfigs."agents-md@builtin".options.instructionFiles
   = "claude-md-and-agents-md"`.**
 
+`AGENTS.md` dropped its work-specific sections on 2026-09-25, after the final
+review; the record keeps only what applies to every project.
+
 The hook commands keep their `~/.claude/hooks/…` paths, which resolve through
 the directory link.
 
@@ -199,9 +202,13 @@ Accepted gaps, named so nobody rediscovers them:
 
 ## Private values: the filter and the guards
 
-All 16 private strings in `settings.json` are under `autoMode`. Git stores
-`<placeholder>` tokens; the file on disk keeps the real values. This is
-dotclaude's mechanism, moved:
+All 16 private strings in `settings.json` are under `autoMode`. Placeholders
+for the names alone would still publish the prose around them, which says as
+much, so every `autoMode` string but `$defaults` is mapped whole: git stores
+one `<placeholder>` token per string, the file on disk keeps the real text,
+and `clean` refuses any other `autoMode` string, naming none. A new entry that
+`/permissions` or `/auto-mode-setup` writes is refused until its row exists.
+This is dotclaude's mechanism, moved:
 
 - **`bin/placeholders`**, tracked. The code of `.git/placeholders-filter.sh`,
   which holds no private data: it reads the map. It dispatched on its own name
@@ -212,7 +219,15 @@ dotclaude's mechanism, moved:
   with the move. `check` refuses when a guard row does not compile: `grep`
   exits 2 on a bad regex, matches nothing, and the old code passed everything.
   And `clean` no longer leaves a copy of the raw settings in `$TMPDIR` when it
-  refuses: a `local tmp` in `check` shadowed the trap's `tmp`.
+  refuses: a `local tmp` in `check` shadowed the trap's `tmp`. The final
+  review hardened it further on 2026-09-25. The guards pass `--no-color
+  --no-ext-diff --no-textconv` to the `git diff --cached` and `git log -p`
+  they parse: colour, an external diff or a textconv driver in user config
+  each let a staged term through. `check` refuses a map with more than one
+  `guard` or `guard_cs` row: only the last one counted, so a second row
+  silently disabled the first. `check-push` also scans each ref line's local
+  and remote names and an annotated tag's message. And `check`'s buffer is
+  removed on an interrupt too.
 - **`.gitattributes`**, tracked: `configs/claude/settings.json filter=placeholders`.
 - **Per clone**, an INSTALL step: `filter.placeholders.clean` and `.smudge`
   set to `bin/placeholders clean|smudge` — git runs filters from the worktree
@@ -248,6 +263,13 @@ Two properties are kept on purpose:
 CI stays gitleaks-only. The map is private, so the work-term guard can only
 ever run locally; `pre-push` is its backstop.
 
+`--no-verify` skips `pre-push` too, so `settings.json` denies Claude Code the
+ways around the hooks, in the `Bash(<prefix>*)` style of its other deny rules:
+`git commit` and `git push` with `--no-verify`, `git commit -n`, and any
+command prefixed `LEFTHOOK=0` or `LEFTHOOK=false`. They are prefix matches, so
+they stop an agent retrying a refused commit the obvious way, not a determined
+one: `git -C`, a clustered `-an` or an `env` prefix still gets past them.
+
 ### Why the private values stay in settings.json
 
 The classifier reads `autoMode` from `~/.claude/settings.json`, managed
@@ -274,14 +296,17 @@ do: `CLAUDE_HOME="${CLAUDE_CONFIG_DIR:-$HOME/.claude}"`.
 | `~/.claude/scripts links into this clone` | Severed, the status line disappears. |
 | `claude is 2.1.277 or later` | Below it, `AGENTS.md` is not read at all. Fails today, by design, until the stable cask catches up. |
 | `the placeholders filter is configured in this clone` | Undefined, git stores `settings.json` raw. |
-| `the placeholder map is readable` | Missing, every commit fails; this names the reason in one line. |
+| `the placeholder map is readable` | Missing, or with more than one `guard` row, every commit fails; this names the reason in one line. |
+| `the live settings.json holds real values, not placeholders` | smudge never fails, so a checkout that cannot resolve a token leaves it in the live file in silence. Added 2026-09-25; names the tokens only. |
 
 The lefthook test also checks `commit-msg` and `pre-push`: `lefthook install`
 writes only the hooks `lefthook.yml` lists, so a clone installed before this
 change has neither.
 
 `teardown_file` gains an advisory for `~/.claude/.git`: a checkout there
-restores regular files over the links.
+restores regular files over the links. Since 2026-09-25 it also says when
+`git status` itself fails, which is how the filter refusing `settings.json`
+shows, rather than swallowing it.
 
 Deliberately not tested: the `instructionFiles` key (it is in the tracked
 record, so git sees it — doctor tests the machine), the VS Code extension's
@@ -415,7 +440,7 @@ scratch `CLAUDE_CONFIG_DIR`; no real path was modified.
 - `history.jsonl` has 1,666 lines the work-term guard flags.
 - The guard flags 9 tracked consus files and one commit message, all through
   two guard rows matching the `includeIf` path and proto's file name.
-- All 16 placeholders in the committed `settings.json` are under `autoMode`.
+- All 16 private strings in the committed `settings.json` are under `autoMode`.
 - `remote-settings.json` is `{}`; `/Library/Application Support/ClaudeCode/`
   does not exist.
 - The Claude Code binary's own `AGENTS.md` handling that `strings` can see is

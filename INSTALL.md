@@ -30,6 +30,7 @@ never clobber but can refuse or land inside a directory — see "Traps".
    git config filter.placeholders.clean 'bin/placeholders clean'
    git config filter.placeholders.smudge 'bin/placeholders smudge'
    git config filter.placeholders.required true
+   test -r ~/.claude/placeholders.tsv || echo '✖ restore ~/.claude/placeholders.tsv first'
    test -r ~/.claude/placeholders.tsv && test ! -L ~/.claude/settings.json && git show :configs/claude/settings.json | cmp -s - configs/claude/settings.json && rm configs/claude/settings.json && git restore configs/claude/settings.json
    ```
 
@@ -37,7 +38,8 @@ never clobber but can refuse or land inside a directory — see "Traps".
    wrote it before the filter existed, so it holds placeholders. It acts only
    once the map is in place and while the file is unlinked and still
    byte-identical to what git stores, so running it again never touches the
-   live settings.
+   live settings. Without the map it does nothing, and says nothing either:
+   the line before it is what says so.
 
 3. The eight links and the ghostty include. `git` goes last on purpose: from
    the moment anything displaces `~/.config/git` until the link lands there is
