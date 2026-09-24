@@ -4,10 +4,11 @@
 #
 # Link integrity is the one invariant git cannot express — the repo can be
 # pristine while $XDG_CONFIG_HOME points somewhere else, and for git, fish and
-# proto a severed link is completely silent. For agents a dangling one is
-# worse than silent: see the agents link test. Since the links are now made by
-# hand (INSTALL.md), the two things the old installer did quietly — the clone's
-# mode and lefthook's hooks — are asserted here too.
+# proto a severed link is completely silent. For agents and for claude's
+# settings.json a dangling one is worse than silent: see their link tests.
+# Since the links are now made by hand (INSTALL.md), the two things the old
+# installer did quietly — the clone's mode and lefthook's hooks — are asserted
+# here too, and so is the placeholders filter, which is per-clone git config.
 #
 # Run it as bin/doctor. The one side effect is the fish probe: `fish -c`
 # sources conf.d/proto.fish, which runs `proto activate`, and that materialises
@@ -31,10 +32,17 @@ setup_file() {
 	# dotagents' own root lookup. Its record is a single file for the same
 	# reason as proto's: DOTAGENTS_HOME relocates skills/ along with it.
 	AGENTS_ROOT="${DOTAGENTS_HOME:-$HOME/.agents}"
-	export REPO CONFIG_HOME RECORD PROTO_STORE AGENTS_ROOT
+	# Claude Code's own lookup. Its record is four links rather than one
+	# directory link: CLAUDE_CONFIG_DIR relocates sessions, transcripts and
+	# plugins along with the settings — 4 GB that must stay out of this repo.
+	CLAUDE_HOME="${CLAUDE_CONFIG_DIR:-$HOME/.claude}"
+	# bin/placeholders' own default, with the same override.
+	PLACEHOLDER_MAP="${PLACEHOLDER_MAP:-$HOME/.claude/placeholders.tsv}"
+	export REPO CONFIG_HOME RECORD PROTO_STORE AGENTS_ROOT CLAUDE_HOME PLACEHOLDER_MAP
 	echo "# repo: $REPO" >&3
 	echo "# proto store: $PROTO_STORE" >&3
 	echo "# agents root: $AGENTS_ROOT" >&3
+	echo "# claude home: $CLAUDE_HOME" >&3
 }
 
 # assert_link <path> <target> — the whole health of a link, in one place. The
@@ -89,9 +97,20 @@ require_link() {
 }
 
 @test "lefthook's hooks are installed in this clone" {
-	grep -q lefthook "$REPO/.git/hooks/pre-commit" 2>/dev/null || {
+	# All three, not only pre-commit: lefthook install writes just the hooks
+	# lefthook.yml lists, so a clone installed before the work-term guard has a
+	# pre-commit hook and neither of the other two.
+	local hook missing=0
+	for hook in pre-commit commit-msg pre-push; do
+		grep -q lefthook "$REPO/.git/hooks/$hook" 2>/dev/null || {
+			echo "$hook is not lefthook's"
+			missing=1
+		}
+	done
+	[ "$missing" -eq 0 ] || {
 		echo "run: cd $REPO && lefthook install"
-		echo "without them gitleaks does not see a commit until it is pushed"
+		echo "without them gitleaks does not see a commit until it is pushed, and"
+		echo "the work-term guard, which never runs in CI, does not see it at all"
 		return 1
 	}
 }
@@ -254,7 +273,91 @@ require_link() {
 	}
 }
 
-# Advisories. Deliberately not assertions: neither is a broken machine, and the
+@test "~/.claude/settings.json links into this clone" {
+	# The worst dangling case in the repo. Claude Code saves by temp file and
+	# rename on the link target, so the link survives every save — but measured
+	# on 2.1.273, with the target gone it reads empty settings in silence (no
+	# permission rule, hook or autoMode entry), and its next save writes a
+	# settings.json holding only that one change into configs/claude/.
+	# git restore it, then look for anything saved in between.
+	assert_link "$CLAUDE_HOME/settings.json" "$RECORD/claude/settings.json"
+}
+
+@test "~/.claude/AGENTS.md links into this clone" {
+	# Severed, the global instructions are simply absent from every session.
+	assert_link "$CLAUDE_HOME/AGENTS.md" "$RECORD/claude/AGENTS.md"
+}
+
+@test "~/.claude/hooks links into this clone" {
+	# Severed, the two PreToolUse hooks stop injecting their context. Neither
+	# ever blocks a call, so nothing else says so.
+	assert_link "$CLAUDE_HOME/hooks" "$RECORD/claude/hooks"
+}
+
+@test "~/.claude/scripts links into this clone" {
+	# Severed, the status line disappears.
+	assert_link "$CLAUDE_HOME/scripts" "$RECORD/claude/scripts"
+}
+
+@test "claude is 2.1.277 or later" {
+	command -v claude >/dev/null 2>&1 || skip "claude is not installed"
+	# Below 2.1.277 Claude Code reads no AGENTS.md at all, and nothing here
+	# gives it a CLAUDE.md, so terminal sessions run without the global
+	# instructions. The stable cask was 2.1.273 on 2026-09-24: this fails on
+	# purpose until stable catches up. The VS Code extension bundles its own
+	# binary, which this does not ask about.
+	local v
+	v=$(claude --version 2>/dev/null | awk '{ print $1 }')
+	[ -n "$v" ] || {
+		echo "claude --version printed nothing"
+		return 1
+	}
+	printf '%s\n%s\n' 2.1.277 "$v" | sort -V -C || {
+		echo "claude is $v, below 2.1.277: terminal sessions load no AGENTS.md"
+		return 1
+	}
+}
+
+@test "the placeholders filter is configured in this clone" {
+	# .gitattributes names the filter; this clone's git config defines it.
+	# Undefined, git stores configs/claude/settings.json exactly as it is on
+	# disk — real values included — and filter.placeholders.required only
+	# applies once the filter is defined.
+	local key got bad=0
+	for key in clean smudge; do
+		got=$(git -C "$REPO" config --get "filter.placeholders.$key" || true)
+		[ "$got" = "bin/placeholders $key" ] || {
+			echo "filter.placeholders.$key is '$got' (expected 'bin/placeholders $key')"
+			bad=1
+		}
+	done
+	got=$(git -C "$REPO" config --type=bool --get filter.placeholders.required || true)
+	[ "$got" = true ] || {
+		echo "filter.placeholders.required is '$got' (expected true)"
+		bad=1
+	}
+	[ "$bad" -eq 0 ] || {
+		echo "run the three git config filter.placeholders lines of INSTALL.md step 2 —"
+		echo "not the step's last line, which is for a fresh clone only"
+		return 1
+	}
+}
+
+@test "the placeholder map is readable" {
+	# Without it every guard fails closed and nothing can be committed; this
+	# names the file before a commit does. It is untracked and exists nowhere
+	# else on this machine.
+	[ -r "$PLACEHOLDER_MAP" ] || {
+		echo "$PLACEHOLDER_MAP is missing or unreadable — restore it from backup"
+		return 1
+	}
+	grep -q "^guard$(printf '\t')" "$PLACEHOLDER_MAP" || {
+		echo "$PLACEHOLDER_MAP has no guard row, so every guard refuses everything"
+		return 1
+	}
+}
+
+# Advisories. Deliberately not assertions: none is a broken machine, and the
 # run must not fail on them. They print, and that is all.
 teardown_file() {
 	# A self-installed proto in the store shadows Homebrew's, because activation
@@ -279,5 +382,11 @@ teardown_file() {
 	if [ -e "$AGENTS_ROOT/.git" ]; then
 		echo "# note: $AGENTS_ROOT/.git exists — a checkout there restores a" >&3
 		echo "#       regular agents.toml over the link." >&3
+	fi
+	# The same for the retired dotclaude checkout, which still tracks
+	# settings.json, AGENTS.md and hooks/ at the paths the links now occupy.
+	if [ -e "$CLAUDE_HOME/.git" ]; then
+		echo "# note: $CLAUDE_HOME/.git exists — a checkout there restores" >&3
+		echo "#       regular files over three of the four links." >&3
 	fi
 }
