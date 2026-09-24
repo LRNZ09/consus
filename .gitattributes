@@ -1,0 +1,3 @@
+# The private values in settings.json go through bin/placeholders on their way
+# into git and back; the filter is per-clone git config (INSTALL.md step 2).
+configs/claude/settings.json filter=placeholders
