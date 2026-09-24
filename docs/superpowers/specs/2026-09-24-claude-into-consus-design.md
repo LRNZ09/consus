@@ -199,15 +199,24 @@ dotclaude's mechanism, moved:
   which holds no private data: it reads the map. It dispatched on its own name
   because it was symlinked as each hook; lefthook owns `.git/hooks/` here, so
   that becomes explicit subcommands — `clean` and `smudge` (the filter,
-  unchanged), `check` (stdin, unchanged), and `check-msg <file>`,
-  `check-staged` and `check-push <remote>` (stdin), which are the old hook
-  bodies.
+  unchanged), `check` (stdin), and `check-msg <file>`, `check-staged` and
+  `check-push <remote>` (stdin), which are the old hook bodies. Two fixes come
+  with the move. `check` refuses when a guard row does not compile: `grep`
+  exits 2 on a bad regex, matches nothing, and the old code passed everything.
+  And `clean` no longer leaves a copy of the raw settings in `$TMPDIR` when it
+  refuses: a `local tmp` in `check` shadowed the trap's `tmp`.
 - **`.gitattributes`**, tracked: `configs/claude/settings.json filter=placeholders`.
 - **Per clone**, an INSTALL step: `filter.placeholders.clean` and `.smudge`
   set to `bin/placeholders clean|smudge` — git runs filters from the worktree
   root — and `filter.placeholders.required true`.
-- **`lefthook.yml`** gains `placeholders` under `pre-commit` beside gitleaks,
-  and new `commit-msg` (`{1}`) and `pre-push` (`{1}`, `use_stdin: true`) hooks.
+- **`lefthook.yml`** gains the guard in three hooks: `pre-commit` beside
+  gitleaks, `commit-msg` (`{1}`) and `pre-push` (the remote as `$1`, the ref
+  lines on stdin). `pre-commit` and `pre-push` run it as lefthook *scripts*,
+  `.lefthook/<hook>/placeholders.sh`, not commands: lefthook 2.1.14 skips a
+  command when its own file list is empty — a typechange-only commit, a
+  commit that changes no file, a push of a branch other than `HEAD` — and a
+  skipped guard passes everything. Scripts always run. Cherry-pick, rebase, am
+  and merge run no `pre-commit`; `pre-push` is what sees their commits.
 - **The map** stays untracked at `~/.claude/placeholders.tsv`.
 
 The guards now cover all of consus, not only `settings.json`. Measured before
@@ -283,6 +292,12 @@ What a mistake can still do here is sever the `settings.json` link while
 then a near-empty record written into the tree. Nothing else in `~/.claude`
 enters the repo, so no `git clean` or `rm` inside consus can reach a session,
 a transcript or memory.
+
+One more way to sever all four links at once: checking out, bisecting or
+rebasing onto a commit from before `configs/claude/` existed removes the
+directory, and every running session loses its permission rules, hooks and
+`autoMode` entries until the checkout returns. Old commits are for `git show`
+or a worktree elsewhere.
 
 ## Retiring dotclaude
 
@@ -361,8 +376,10 @@ And in this repo's other documents:
 ## Rollback
 
 `rm` the four links — the links, never a trailing slash. Move the backed-up
-files and `.git` back into `~/.claude`, and `git restore` there if needed.
-Unarchive dotclaude if it was archived. Claude Code reads regular files exactly
+files and `.git` back into `~/.claude`, never over a file that exists there
+now. Never `git restore settings.json` there: it still carries the one
+uncommitted change it had before the migration. Unarchive dotclaude if it was
+archived, and revert its pointer commit. Claude Code reads regular files exactly
 as it reads the links, so the machine is whole the moment they are back.
 consus's commits can stay: nothing reads them without the links.
 
@@ -400,6 +417,19 @@ scratch `CLAUDE_CONFIG_DIR`; no real path was modified.
 - Brew's `claude-code` cask is 2.1.273; `claude-code@latest` is 2.1.281.
 - Nothing else on this machine reads `~/.claude/AGENTS.md`: there is no
   `~/.codex/AGENTS.md` or `~/.config/opencode/AGENTS.md`.
+- lefthook 2.1.14 passes `.git/COMMIT_EDITMSG` as `commit-msg`'s `{1}` and the
+  remote's name as `pre-push`'s, with the ref lines on stdin under
+  `use_stdin`; a failing command or script blocks the commit or push. It skips
+  a *command* with "no matching staged files" or "no matching push files"
+  when its own list is empty. The push list is `HEAD` against `@{push}`, not
+  the refs being pushed, so a guard written as a command let an empty commit
+  and a push of another branch through. Scripts are never skipped, and
+  lefthook chmods each one to 0751 when it runs it, so they are committed
+  executable.
+- git runs a filter from the worktree root, even for a `git add` run in a
+  subdirectory.
+- BSD `mv -f link file` replaces the file by one `rename(2)`; `mv -f link dir`
+  and `ln -s target dir` put the link *inside* an existing directory.
 
 ### From the documentation, checked 2026-09-24
 
