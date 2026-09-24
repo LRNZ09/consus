@@ -23,8 +23,8 @@ Everything else in `~/.agents` stays there and is not in this repo:
   entries, which then break `install` on any machine without them. `install`
   and `doctor` cover everything else `sync` does.
 - **A missing target is loud in the worst way.** If `agents.toml` disappears
-  from this directory while the directory stays — a rename, a checkout of an
-  older commit — every dotagents command, `trust list` included, writes a
+  from this directory while the directory stays — a rename or `git rm` of the
+  file — every dotagents command but `doctor`, `trust list` included, writes a
   default config through the link into this repo, and the next `install`
   prunes every skill. `git restore configs/agents/agents.toml`, then
   `npx @sentry/dotagents --user install`. `bin/doctor` reports the dangling

@@ -209,9 +209,9 @@ require_link() {
 @test "~/.agents/agents.toml links into this clone" {
 	# The dangling case is worse here than proto's. dotagents does not fall back
 	# to defaults in memory: measured on 3.1.0, with the target gone but
-	# configs/agents/ still present, every command — `trust list` included —
-	# writes a default config through the link into this repo, and the next
-	# install prunes every skill. git restore the record, then install.
+	# configs/agents/ still present, every command but doctor — `trust list`
+	# included — writes a default config through the link into this repo, and
+	# the next install prunes every skill. git restore the record, then install.
 	assert_link "$AGENTS_ROOT/agents.toml" "$RECORD/agents/agents.toml"
 }
 
