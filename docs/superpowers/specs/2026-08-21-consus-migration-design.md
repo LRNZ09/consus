@@ -206,7 +206,7 @@ and dotagents 3.1.0.
 | `fish` | `~/.config/fish` | directory link | `bin/doctor` `readlink` only |
 | `ghostty` | App Support; stub in `~/.config/ghostty` | 1-line `config-file` include | `ghostty +validate-config` exits 1 |
 | `proto` | `$PROTO_HOME/.prototools`, default `~/.proto` | file link | `bin/doctor` `readlink` only |
-| `agents` | `$DOTAGENTS_HOME/agents.toml`, default `~/.agents` | file link | `bin/doctor` link test (dangling-aware) |
+| `agents` | `$DOTAGENTS_HOME/agents.toml`, default `~/.agents` | file link | `bin/doctor` link test |
 | `zed` | — | **dropped** | settings-sync extensions are in flight |
 | `opencode` | — | **dropped** | no binary installed anywhere |
 | `gh` | — | **dropped** | 2-line payload; file link viable but not worth it |
