@@ -4,7 +4,8 @@
 #
 # Link integrity is the one invariant git cannot express — the repo can be
 # pristine while $XDG_CONFIG_HOME points somewhere else, and for git, fish and
-# proto a severed link is completely silent. Since the links are now made by
+# proto a severed link is completely silent. For agents a dangling one is
+# worse than silent: see the agents link test. Since the links are now made by
 # hand (INSTALL.md), the two things the old installer did quietly — the clone's
 # mode and lefthook's hooks — are asserted here too.
 #
@@ -17,9 +18,9 @@ setup_file() {
 	CONFIG_HOME="${XDG_CONFIG_HOME:-$HOME/.config}"
 	RECORD="$REPO/configs"
 	# proto's store, in proto's own precedence order. proto never reads
-	# XDG_CONFIG_HOME, so its record is the one path here that is not under
-	# $CONFIG_HOME — and it is a single file, because PROTO_HOME relocates the
-	# whole 2.3 GB store and cannot separate the record from it.
+	# XDG_CONFIG_HOME, so its record is not under $CONFIG_HOME — nor is the
+	# agents record below — and it is a single file, because PROTO_HOME
+	# relocates the whole 2.3 GB store and cannot separate the record from it.
 	if [ -n "${PROTO_HOME:-}" ]; then
 		PROTO_STORE="$PROTO_HOME"
 	elif [ -n "${XDG_DATA_HOME:-}" ]; then
@@ -27,9 +28,13 @@ setup_file() {
 	else
 		PROTO_STORE="$HOME/.proto"
 	fi
-	export REPO CONFIG_HOME RECORD PROTO_STORE
+	# dotagents' own root lookup. Its record is a single file for the same
+	# reason as proto's: DOTAGENTS_HOME relocates skills/ along with it.
+	AGENTS_ROOT="${DOTAGENTS_HOME:-$HOME/.agents}"
+	export REPO CONFIG_HOME RECORD PROTO_STORE AGENTS_ROOT
 	echo "# repo: $REPO" >&3
 	echo "# proto store: $PROTO_STORE" >&3
+	echo "# agents root: $AGENTS_ROOT" >&3
 }
 
 # assert_link <path> <target> — the whole health of a link, in one place. The
@@ -201,6 +206,54 @@ require_link() {
 	}
 }
 
+@test "~/.agents/agents.toml links into this clone" {
+	# The dangling case is worse here than proto's. dotagents does not fall back
+	# to defaults in memory: measured on 3.1.0, with the target gone but
+	# configs/agents/ still present, every command — `trust list` included —
+	# writes a default config through the link into this repo, and the next
+	# install prunes every skill. git restore the record, then install.
+	assert_link "$AGENTS_ROOT/agents.toml" "$RECORD/agents/agents.toml"
+}
+
+@test "every skill in agents.lock is installed" {
+	# Gated on the link: a lock written from some other agents.toml says
+	# nothing about this record.
+	require_link "$AGENTS_ROOT/agents.toml" "$RECORD/agents/agents.toml"
+
+	# The lock is dotagents' machine state, not the record, and install writes
+	# it after installing — so this asks whether something installed has since
+	# gone missing. skills/<name>/ is dotagents' own rule. Directories no lock
+	# entry names — twg's twg* and Claude Code's synced/ — belong there too and
+	# are deliberately not reported.
+	local lock="$AGENTS_ROOT/agents.lock" names name missing=0 checked=0
+	[ -f "$lock" ] || {
+		echo "$lock is missing — run: npx @sentry/dotagents --user install (needs network)"
+		return 1
+	}
+	# A name with a dot is written quoted: [skills."a.b"].
+	names=$(sed -n 's/^\[skills\.\(.*\)\]$/\1/p' "$lock" | sed 's/^"\(.*\)"$/\1/')
+
+	while IFS= read -r name; do
+		[ -n "$name" ] || continue
+		checked=$((checked + 1))
+		[ -d "$AGENTS_ROOT/skills/$name" ] || {
+			echo "locked but not installed: $name"
+			missing=$((missing + 1))
+		}
+	done <<-EOF
+		$names
+	EOF
+
+	[ "$checked" -gt 0 ] || {
+		echo "no [skills.*] entries in $lock — run: npx @sentry/dotagents --user install (needs network)"
+		return 1
+	}
+	[ "$missing" -eq 0 ] || {
+		echo "$missing missing — run: npx @sentry/dotagents --user install (needs network)"
+		return 1
+	}
+}
+
 # Advisories. Deliberately not assertions: neither is a broken machine, and the
 # run must not fail on them. They print, and that is all.
 teardown_file() {
@@ -220,5 +273,11 @@ teardown_file() {
 		echo "# note: uncommitted changes — git restore <path> if the record was" >&3
 		echo "#       right, git commit if the machine was:" >&3
 		printf '%s\n' "$queue" | sed 's|^|#         |' >&3
+	fi
+	# A leftover checkout claims agents.toml: any checkout, switch or pull
+	# there restores a regular file over the link.
+	if [ -e "$AGENTS_ROOT/.git" ]; then
+		echo "# note: $AGENTS_ROOT/.git exists — a checkout there restores a" >&3
+		echo "#       regular agents.toml over the link." >&3
 	fi
 }
