@@ -1,9 +1,11 @@
 assert_lefthook_installed: true
 # The work-term guard (bin/placeholders) runs as scripts in pre-commit and
-# pre-push, from .lefthook/<hook>/placeholders.sh. Measured on 2.1.14: lefthook
+# pre-push, from .lefthook/<hook>/placeholders.sh, and gitleaks runs as one in
+# pre-push, from .lefthook/pre-push/gitleaks.sh. Measured on 2.1.14: lefthook
 # skips a command whose own file list is empty — a typechange-only commit, a
 # commit that changes no file, a push of a branch other than HEAD — and a
-# skipped guard passes everything. Scripts always run.
+# skipped guard passes everything. Scripts always run, and each script with
+# use_stdin gets all of git's ref lines, whatever the others read.
 pre-commit:
   parallel: true
   commands:
@@ -21,5 +23,8 @@ commit-msg:
 pre-push:
   scripts:
     placeholders.sh:
+      runner: sh
+      use_stdin: true
+    gitleaks.sh:
       runner: sh
       use_stdin: true
