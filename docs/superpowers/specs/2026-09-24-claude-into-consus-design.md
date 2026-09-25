@@ -250,7 +250,11 @@ This is dotclaude's mechanism, moved:
   Its `--log-opts` carry the flags `check-push` gives its own `git log`, so
   user config cannot hide a line from it either. It refuses a ref that is not
   a commit or a tag of one, because gitleaks passes whatever its `git log`
-  cannot read.
+  cannot read. For the same reason it leaves out the commits the
+  remote-tracking refs hold only when `$1` names one of the clone's remotes: on
+  a push to a URL or path, `$1` is that URL or path, and one with a space in
+  it split gitleaks' `--log-opts`. Such a push scans each commit's whole
+  history.
 - **The map** stays untracked at `~/.claude/placeholders.tsv`.
 
 The guards now cover all of consus, not only `settings.json`. Measured before
@@ -565,7 +569,9 @@ changed nothing outside it.
 - lefthook gives every `pre-push` script with `use_stdin: true` all of git's
   ref lines, not a share of them: three scripts in sequence, three under
   `parallel: true`, and one that read only the first line all left the others
-  the full input. Each gets the remote as `$1` and its URL as `$2`.
+  the full input. Each gets the remote as `$1` and its URL as `$2`, split at
+  spaces first: on a push to a path holding a space, a script's `$1` is the
+  path's first word.
 - gitleaks runs `git -C . log -p -U0 <log-opts>`, so user config reaches it.
   With `--log-opts` holding only the range, a real finding passed with exit 0
   under `color.ui=always` or `color.diff=always`, a textconv driver,
@@ -573,6 +579,10 @@ changed nothing outside it.
   `--no-color --no-ext-diff --no-textconv --root --diff-merges=first-parent`
   closes all five. `diff.external` and `GIT_EXTERNAL_DIFF` never blinded it.
 - gitleaks exits 0, "0 commits scanned", for an unknown sha and for a blob.
+  It splits `--log-opts` at spaces and takes a quote as a plain character. So
+  `gitleaks.sh`, run on its own with a path holding a space as `$1`, passed a
+  real finding the same way; with a remote named `it's` or `q"x` it found it.
+  git refuses a remote name with a space in it.
 - Under `log.showRoot=false`, `git log -p` shows no diff for a root commit;
   `--root` brings it back.
 - jq prints a map-row `error()` as

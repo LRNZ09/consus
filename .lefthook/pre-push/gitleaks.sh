@@ -9,6 +9,18 @@
 # gitleaks 8.30.1, each of these let an address through without them: color.ui
 # or color.diff set to always, a textconv driver, log.showRoot=false on a root
 # commit, and a merge's own changes.
+#
+# gitleaks splits --log-opts at spaces, and when its git log fails it scans
+# nothing and passes. $1 is the remote's name, or on a push to a URL or path
+# the URL or path itself, and one with a space in it made that git log fail:
+# measured by running this script on its own, since lefthook 2.1.14 splits its
+# arguments at spaces first. So the commits the remote-tracking refs hold are
+# left out only when $1 names one of this clone's remotes, which cannot hold a
+# space; any other push scans each commit's whole history.
+not=
+if git remote | command grep -qxF -- "$1"; then
+	not=" --not --remotes=$1"
+fi
 while read -r _ sha _ _; do
 	# A deletion publishes nothing.
 	case $sha in *[!0]*) ;; *) continue ;; esac
@@ -18,6 +30,6 @@ while read -r _ sha _ _; do
 	git rev-parse -q --verify "$sha^{commit}" >/dev/null ||
 		{ echo "✖ $sha is not a commit, and gitleaks scans only commits"; exit 1; }
 	gitleaks git --no-banner --redact -v --config .gitleaks.toml \
-		--log-opts="--no-color --no-ext-diff --no-textconv --root --diff-merges=first-parent $sha --not --remotes=$1" ||
+		--log-opts="--no-color --no-ext-diff --no-textconv --root --diff-merges=first-parent $sha$not" ||
 		exit 1
 done
