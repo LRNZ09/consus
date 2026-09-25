@@ -12,9 +12,9 @@
 # As lefthook's guards (lefthook.yml), over the whole repo:
 #   check-msg FILE     commit-msg: the message in FILE
 #   check-staged       pre-commit: the lines the staged diff adds
-#   check-push REMOTE  pre-push: the ref names, tag messages, commit messages
-#                      and added lines being pushed, from git's ref lines on
-#                      stdin
+#   check-push REMOTE  pre-push: the ref names, tag messages (each tag's, when
+#                      one tag points at another), commit messages and added
+#                      lines being pushed, from git's ref lines on stdin
 # And by hand:
 #   check              stdin: fail if it names a private term
 #
@@ -42,11 +42,14 @@ arm
 
 # Swaps values for placeholders (clean) or back (smudge) in every JSON string,
 # longest first, and prints canonical JSON: sorted keys, tabs, no final newline.
+# A malformed row is named by its line in the map, counting every line, never
+# by its text: the row may hold a private value.
 swap() {
 	[ -r "$map" ] || { echo "placeholders: can't read $map" >&2; return 1; }
 	jq -j -S --tab --rawfile m "$map" --arg mode "$1" '
-		([$m | split("\n")[] | select(test("^(#|guard(_cs)?\t|\\s*$)") | not) | split("\t")
-			| if length == 2 and all(length > 0) then . else error("bad map row: \(join("<TAB>"))") end]
+		([$m | split("\n") | to_entries[] | select(.value | test("^(#|guard(_cs)?\t|\\s*$)") | not)
+			| (.value | split("\t")) as $r
+			| if ($r | length == 2 and all(length > 0)) then $r else error("bad map row at line \(.key + 1)") end]
 			| if (map(.[1]) | unique | length) < length then error("a placeholder is used twice") else . end
 			| map(if $mode == "clean" then . else reverse end)
 			| sort_by(-(.[0] | length))) as $rows
@@ -92,6 +95,23 @@ $hits"
 # Keeps added lines and file headers; a diff with nothing added is not an error.
 added_lines() { grep -a -E '^(\+|diff --git )' || [ $? -eq 1 ]; }
 
+# Prints the tag at $1 and every tag it points at in turn, as git cat-file
+# shows each, stopping at the first object that is not a tag: a neutral tag can
+# point at one whose message names a term. Nothing nests tags this deep by
+# accident, so a chain past 20 is refused, not read to its end.
+tag_chain() {
+	local obj=$1 txt n=0
+	while [ "$(git cat-file -t "$obj" 2>/dev/null)" = tag ]; do
+		[ "$n" -lt 20 ] || { echo "placeholders: a tag chain is more than 20 tags deep, refusing" >&2; return 1; }
+		txt=$(git cat-file tag "$obj") || return 1
+		printf '%s\n' "$txt"
+		# A tag's first line is "object <sha>".
+		obj=${txt%%$'\n'*}
+		obj=${obj#object }
+		n=$((n + 1))
+	done
+}
+
 case ${1:-} in
 	clean)
 		tmp=$(mktemp -d "${TMPDIR:-/tmp}/placeholders.XXXXXX") || exit 1
@@ -114,8 +134,12 @@ case ${1:-} in
 		if swap smudge < "$tmp/in" > "$tmp/out" 2> "$tmp/err"; then
 			cat "$tmp/out"
 		else
+			# jq words its own errors "jq: error (at <stdin>:0): ..."; the
+			# warning keeps the message alone.
 			err=$(head -1 "$tmp/err")
-			echo "placeholders: ${err#placeholders: }; checked out with placeholders" >&2
+			err=${err#placeholders: }
+			err=${err#"jq: error (at "*"): "}
+			echo "placeholders: $err; checked out with placeholders" >&2
 			cat "$tmp/in"
 		fi
 		;;
@@ -133,13 +157,14 @@ case ${1:-} in
 		[ -n "${2:-}" ] || usage "check-push REMOTE"
 		remote=$2
 		# A deletion publishes nothing, so it is skipped: refusing it would keep
-		# a leaked branch name on the remote.
+		# a leaked branch name on the remote. --root shows a root commit's diff,
+		# which log.showRoot=false would hide on a push to an empty remote.
 		while read -r lref sha rref _; do
 			[ "$sha" = 0000000000000000000000000000000000000000 ] && continue
 			{ printf '%s\n' "$lref" "$rref"
-				[ "$(git cat-file -t "$sha" 2>/dev/null)" != tag ] || git cat-file tag "$sha"
+				tag_chain "$sha" || exit 1
 				git log --format=%B "$sha" --not --remotes="$remote"
-				git log -p --no-color --no-ext-diff --no-textconv -U0 --no-renames --text --diff-merges=first-parent --format= "$sha" --not --remotes="$remote" | added_lines
+				git log -p --root --no-color --no-ext-diff --no-textconv -U0 --no-renames --text --diff-merges=first-parent --format= "$sha" --not --remotes="$remote" | added_lines
 			} | check || exit 1
 		done
 		;;
