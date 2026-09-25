@@ -288,21 +288,32 @@ ways around the hooks. Until 2026-09-25 that was eight rules in the
 through `Bash(git commit * -n*)` and `Bash(git commit * --no-verify*)`, while
 `git -C dir commit --no-verify`, `env LEFTHOOK=0 git push`,
 `git -c core.hooksPath=/dev/null commit` and `git merge --no-verify topic` all
-got past them. Now 90 rules refuse a `commit`, `push`, `merge` or `pull` run
+got past them. Now 127 rules refuse a `commit`, `push`, `merge` or `pull` run
 with the hooks off, and each way of turning them off that a rule can see:
 
 - `--no-verify`, and for `commit` and `push` the abbreviations `--no-veri`
   and `--no-verif`;
 - `commit`'s `-n`, alone or clustered: `-an`, `-nm`, `-anm`, `-qn`, `-sn`,
   `-vn`, and `-a -nm`;
-- `LEFTHOOK=0` or `LEFTHOOK=false`, quoted or not, before git, through `env`
-  or by `export`; `LEFTHOOK_EXCLUDE` and `LEFTHOOK_CONFIG` the same ways, and
-  `SKIP` before git;
+- `LEFTHOOK=0` or `LEFTHOOK=false`, quoted or not, before git, through `env`,
+  or by `export`, `declare -x` or `typeset -x`; `LEFTHOOK_EXCLUDE`,
+  `LEFTHOOK_CONFIG` and `LEFTHOOK_BIN` the same ways; `HUSKY=0` before git,
+  through `env` or by `export`; and `SKIP` before git;
 - `core.hooksPath` set by `git -c`, with the argument quoted or not,
   `--config-env`, `git config`, `git clone -c`, `GIT_CONFIG_KEY_<n>` or
   `GIT_CONFIG_PARAMETERS`;
 - `lefthook uninstall`, bare, by path, or through `npx`, `yarn`, `pnpm`,
   `bunx` or `npm exec`.
+
+The first 90 of them, written on 2026-09-25, missed four ways past the hooks
+that their review found the same day. `LEFTHOOK_BIN` names the binary
+lefthook's installed hook runs, so `LEFTHOOK_BIN=true git commit` ran no hook
+at all. `declare -x` and `typeset -x` export as `export` does, and
+`HUSKY=0` turns husky's hooks off. `pull --no-verify` was refused only right
+after `git`, and `git config`'s `core.hooksPath` forms only after `git -C`, so
+`git --git-dir=… config core.hooksPath` got past them. And an alias written
+as `'commit -n'` has a quote before `commit`, where the rules wanted a space.
+Forty new rules closed them, and three that the new ones cover were dropped.
 
 A rule cannot parse, so each one is written for a position. Claude Code
 matches it against the whole text of each subcommand, its `*` is any text,
@@ -316,11 +327,18 @@ the subcommand and each starts with `-`, so `git -* commit …` reaches past
 matches it: a message that only mentions `git push --no-verify` runs. The
 same forms are repeated under `git config *` for an alias, `git rebase *` for
 `-x`, `git submodule *` for `foreach` and `git clone *` for a cloned
-`core.hooksPath`: the commands that run git for you. `merge` and `pull` need
-the whole `--no-verify`, the only form `merge` takes, so
-`git merge --no-verify-signatures` runs.
+`core.hooksPath`: the commands that run git for you. An alias's value may
+start with a quote, so under `git config *` the flag is looked for anywhere:
+`--no-veri`, `-c core.hooksPath`, `--config-env`, and `commit` followed by
+`-n`, `-an`, `-qn`, `-sn` or `-vn`. After git's own options, too, each form
+is refused, except two that are refused only right after `git`: a
+`--no-verify` inside `rebase -x` or `submodule foreach` that is not the first
+flag after `commit`, and an alias whose value starts with `-c` or
+`--config-env`. `merge` and `pull` need the whole `--no-verify`, the only
+form `merge` takes, so `git merge --no-verify-signatures` runs.
 
-Where no rule gets it right, each case errs in the direction chosen for it:
+Where no rule gets it right, each case errs in the direction chosen for it,
+or has no rule yet:
 
 - **Let through**, because a rule that caught it would refuse message text.
   A `commit` flag or abbreviation before a pathspec, or an abbreviation that
@@ -329,24 +347,40 @@ Where no rule gets it right, each case errs in the direction chosen for it:
   flag there, at that price. `-an` after another option takes
   `git commit * -an*`, which matches a message saying "-and". A `LEFTHOOK=0`
   between other assignments takes `*LEFTHOOK=0 *`, which matches a message
-  naming it. The matcher itself drops a flag after a redirection, and
-  `CORE.HOOKSPATH` in capitals gets past its case-sensitive match. Out of
-  reach altogether: `bash -c`, `eval`, a variable, a one-off `-c alias.…`, a
-  late `-n` in a `rebase -x` command, a quoted subcommand or flag, git by
-  absolute path, and a moved `.git/hooks` file, since `rm`, `mv` and `chmod`
-  rules would refuse real work on hooks.
+  naming it; so does any other bypass variable there. The matcher itself
+  drops a flag after a redirection, and `CORE.HOOKSPATH` in capitals gets
+  past its case-sensitive match. Out of reach altogether: `bash -c`, `eval`, a
+  variable, a one-off `-c alias.…`, a late `-n` in a `rebase -x` or
+  `submodule foreach` command or in an alias (`'commit -a -n'`), a quoted
+  subcommand or flag, git by absolute path, and a moved `.git/hooks` file,
+  since `rm`, `mv` and `chmod` rules would refuse real work on hooks.
+- **Let through, with no rule for it yet.** The two forms not repeated after
+  git's own options, above. A bypass variable exported by `typeset -gx` or
+  any other cluster than a lone `-x`. `HUSKY` by `declare -x` or
+  `typeset -x`, or quoted through `env` or `export`. `SKIP` through `env` or
+  `export`. And `lefthook uninstall` through any other launcher, such as the
+  `mise exec`, `go tool`, `bundle exec` or `uv run` that lefthook's own hook
+  tries.
 - **Refused**, because the text is the flag, byte for byte. A value in a
   flag's position: `git commit -m -n`, `git commit --message --no-verify`, a
   pathspec named `--no-verify`, `git merge -m --no-verify`,
   `git push -o --no-verify`, and a message holding `-n` or `--no-verify`
-  right before another option-like word. Any text naming `GIT_CONFIG_KEY_*`
-  or `GIT_CONFIG_PARAMETERS` with a hooks path, in `echo`, `grep` or a
-  message: those rules start with `*`, so that they also reach a `bash -c` or
-  `eval` string. And a bypass setting on a command that runs no hook,
-  `git -c core.hooksPath=… status` or `LEFTHOOK=0 git status`, since a rule
-  cannot tell which subcommands run hooks.
+  right before another option-like word. After git's own options, a message
+  or argument that holds a bypass anywhere, since the `*` after `git -`
+  reaches as far into the line as it needs to:
+  `git -C dir commit -m 'fix commit -n handling'`,
+  `git -c user.name=x commit -m 'refuse git merge --no-verify here'`,
+  `git -C dir log --grep commit -n 5` and
+  `git -c core.pager=cat config --get core.hooksPath`; no glob can stop at
+  the subcommand. Any text naming `GIT_CONFIG_KEY_*` or
+  `GIT_CONFIG_PARAMETERS` with a hooks path, in `echo`, `grep` or a message:
+  those rules start with `*`, so that they also reach a `bash -c` or `eval`
+  string. And a bypass setting on a command that runs no hook,
+  `git -c core.hooksPath=… status`, `LEFTHOOK=0 git status` or
+  `HUSKY=0 git status`, since a rule cannot tell which subcommands run hooks.
 
-A message that has to name a bypass is committed with `-F <file>`.
+A message that has to name a bypass is committed with `-F <file>`, and a
+search for one runs without `git -C` or `-c`.
 
 A `PreToolUse` hook that read each command as zsh and git do — split by zsh's
 own lexer, git's options walked, option values skipped — was built on
@@ -605,7 +639,7 @@ changed nothing outside it.
   `=value` or the next word. A config name matches in any case:
   `-c FOO.BAR=2` reads back as `foo.bar`.
 - The script lefthook installs in `.git/hooks` exits at once when `LEFTHOOK`
-  is `0`.
+  is `0`, and runs `$LEFTHOOK_BIN` in place of lefthook when that is set.
 - A refusal by a deny rule reads "Permission to use Bash with command … has
   been denied."; the auto-mode classifier refused none of the probes.
 - A rule is matched against the text of each subcommand on its own. A
@@ -623,6 +657,12 @@ changed nothing outside it.
   `"git" 'commit' -"n"` ran. Only a quoted program name is unquoted:
   `'LEFTHOOK=0' git push` was refused, and so was `g\it commit --no-verify`.
 - Matching is case-sensitive: `git -c CORE.HOOKSPATH=/x push` ran.
+- A `*` reaches as far into the line as it needs to, so a rule written as
+  `git -* push …` also finds `push` in a message after `git -C`:
+  `git -C <repo> commit --allow-empty -q -m 'deny git push --no-verify'` and
+  `git -C <repo> log --oneline --grep 'hooks: push --no-verify'` were refused
+  by `Bash(git -* push *--no-veri*)`, and
+  `git -C <repo> log --grep commit -n 5` by `Bash(git -* commit -n*)`.
 - Besides the documented `timeout`, `time`, `nice`, `nohup`, `stdbuf`,
   `command` and `noglob`, 2.1.273 strips `env`, `sudo` and `exec`, which the
   documentation says it does not: `env git commit --no-verify -m x`,
@@ -645,21 +685,22 @@ changed nothing outside it.
   `git status # ; git commit -n` ran. A line continuation does not split a
   command: `git commit \`, then `--no-verify -m x` on the next line, was
   refused.
-- The corpus, `configs/claude/deny-corpus.tsv`, holds 359 commands, each
+- The corpus, `configs/claude/deny-corpus.tsv`, holds 363 commands, each
   with its right answer, not the rules', and the answer the live matcher
   gave. `bin/test-deny-rules` replays it through an offline replica of the
-  matcher, which agrees with the live answer on all 359; each probe run after
-  a change to the rules, 59 after the first and 76 after the second, came out
+  matcher, which agrees with the live answer on all 363; each probe run after
+  a change to the rules, 59 after the first and 80 after the second, came out
   as it predicted. The 146 deny rules, the 127 in "Private values" and 19
-  older ones against destructive commands, get 297 right. The 62 they get
-  wrong are the gaps listed there: 28 bypasses let through and 34 harmless
+  older ones against destructive commands, get 297 right. The 66 they get
+  wrong are the gaps listed there: 32 bypasses let through and 34 harmless
   commands refused, 2 of those by the older rules (`git clean -fdxn`,
   `git restore --staged .`). With the eight rules the first change replaced,
-  the replica gets 168 wrong, all six commands named there among them.
-- Replayed through the replica, 8,911 real Bash commands from Claude Code
-  transcripts, none over 600 characters, meet 181 refusals, and each is a
-  bypass, a probe written for these rules, or a destructive command the older
-  rules refuse on purpose.
+  the replica gets 172 wrong, all six commands named there among them.
+- Replayed through the replica against the first change's 109 rules, 8,911
+  real Bash commands from Claude Code transcripts, none over 600 characters,
+  meet 181 refusals, and each is a bypass, a probe written for these rules,
+  or a destructive command the older rules refuse on purpose. That replay was
+  not repeated for the second change.
 
 ### From the documentation, checked 2026-09-24
 

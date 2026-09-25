@@ -145,14 +145,15 @@ per-clone git config (INSTALL.md step 2). Unlike gitleaks it cannot run in CI �
 the map is private — so `pre-push` is its backstop.
 
 `settings.json`'s deny rules keep Claude Code from retrying a refused commit,
-push or merge with the hooks off: `--no-verify`, `commit -n`, `LEFTHOOK=0` or
-`LEFTHOOK=false`, `core.hooksPath` set by `git -c` or `git config`, and
-`lefthook uninstall`. A rule matches text, not flags, so each one sits where
-git reads a flag — right after the subcommand, last, or before another
-option — and a message such as `git commit -m 'sort -n output'` still runs.
-They stop an agent retrying the obvious way, not a determined one: `bash -c`,
-`eval`, a script or an alias is out of their reach. `configs/claude/README.md`
-says what they catch and what they miss.
+push, merge or pull with the hooks off: `--no-verify`, `commit -n`,
+`LEFTHOOK=0`, `LEFTHOOK=false` or `LEFTHOOK_BIN`, `core.hooksPath` set by
+`git -c` or `git config`, and `lefthook uninstall`, among others. A rule
+matches text, not flags, so each one sits where git reads a flag — right
+after the subcommand, last, or before another option — and a message such as
+`git commit -m 'sort -n output'` still runs. They stop an agent retrying the
+obvious way, not a determined one: `bash -c`, `eval`, a script or an alias is
+out of their reach. `configs/claude/README.md` says what they catch and what
+they miss, and `bin/test-deny-rules` checks them against live measurements.
 
 ## Why any of this
 

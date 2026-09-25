@@ -413,3 +413,7 @@ al-plain	allow	allow	git config alias.ci 'commit -v'	an alias that keeps the hoo
 pc-skip-env	deny	allow	env SKIP=gitleaks git commit -m x	SKIP through env | known gap
 pc-skip-export	deny	allow	export SKIP=gitleaks && git commit -m x	SKIP by export | known gap
 lu-mise	deny	allow	mise exec -- lefthook uninstall	a launcher no rule names | known gap
+rb-C-nv-late	deny	allow	git -C <P> rebase -x 'git commit --amend --no-edit --no-verify' HEAD~1	after git -C, --no-verify inside rebase -x that is not first after commit | known gap
+sm-C-nv-late	deny	allow	git -C <P> submodule foreach 'git commit -m x --no-verify'	after git -C, --no-verify inside submodule foreach that is not first after commit | known gap
+sm-late-n	deny	allow	git submodule foreach 'git commit -m x -n'	-n inside submodule foreach, not right after commit and not last | known gap
+al-C-config-env	deny	allow	git -C <P> config alias.ci '--config-env=core.hooksPath=H commit'	after git -C, an alias whose value starts with --config-env | known gap

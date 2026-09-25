@@ -32,14 +32,26 @@ memory directory, derived from the payload's `cwd`.
 ## Hook-bypass deny rules
 
 `permissions.deny` refuses a Bash call that runs `git commit`, `push`, `merge`
-or `pull` with the git hooks off, or that turns them off: `--no-verify` and
-the abbreviations git takes for it; `commit`'s `-n`, alone or in a cluster
-such as `-an`; `LEFTHOOK=0` or `LEFTHOOK=false`, `LEFTHOOK_EXCLUDE`,
-`LEFTHOOK_CONFIG` or `SKIP`, set before git, through `env` or by `export`;
-`core.hooksPath` set by `git -c`, `--config-env`, `git config`, `git clone -c`
-or `GIT_CONFIG_*`; and `lefthook uninstall`, however it is launched. Each form
-is refused after `git -C dir` too, and the flags also inside `git config` (an
-alias), `git rebase` and `git submodule`.
+or `pull` with the git hooks off, or that turns them off:
+
+- `--no-verify`, and for `commit` and `push` the abbreviations git takes for
+  it; `commit`'s `-n`, alone or in a cluster such as `-an`;
+- `LEFTHOOK=0` or `LEFTHOOK=false`, `LEFTHOOK_EXCLUDE`, `LEFTHOOK_CONFIG`,
+  and `LEFTHOOK_BIN`, which names the binary lefthook's hook runs: each set
+  before git, through `env`, or by `export`, `declare -x` or `typeset -x`;
+- `HUSKY=0` before git, through `env` or by `export`, and `SKIP` before git;
+- `core.hooksPath` set by `git -c`, `--config-env`, `git config`,
+  `git clone -c` or `GIT_CONFIG_*`;
+- `lefthook uninstall`, bare, by path, or through `npx`, `yarn`, `pnpm`,
+  `bunx` or `npm exec`;
+- the same flags inside the commands git runs for you: a `git config` value
+  (an alias), `git rebase -x` and `git submodule foreach`.
+
+Each form is refused after git's own options too — `git -C dir`,
+`-c key=value`, `--git-dir=…` — except two, refused only right after `git`: a
+`--no-verify` inside `rebase -x` or `submodule foreach` that is not the first
+flag after `commit`, and an alias whose value starts with `-c` or
+`--config-env`.
 
 The rules are position-aware. Claude Code matches each subcommand's text
 against a glob whose `*` is any text, quotes included, so no rule can tell a
@@ -49,16 +61,28 @@ another option (`git commit * -n -*`). git's own options are reached as
 `git -* commit …`, which a command that starts `git commit -m` never matches.
 So `git commit -m 'sort -n output'` and `git push -n` run.
 
-Known gaps, each deliberate. Getting through: a flag before a pathspec, a
-`commit` abbreviation or cluster that is not right after the subcommand,
-`CORE.HOOKSPATH` in capitals, a flag after a redirection, a quoted subcommand
-or flag, and anything inside `bash -c`, `eval`, a variable or an alias.
-Refused though harmless: a
-message or value that is character for character a flag in one of those
-positions (`git commit -m -n`), any text naming `GIT_CONFIG_KEY_*` with a
-hooks path, and a command git runs no hook for under a bypass setting
-(`LEFTHOOK=0 git status`). When a message has to name a bypass, commit it with
-`-F <file>`. The design document has the full list and the reasons.
+Known gaps. Getting through: a flag before a pathspec; a `commit`
+abbreviation or cluster that is not right after the subcommand; a late `-n`
+inside `rebase -x`, `submodule foreach` or an alias; `CORE.HOOKSPATH` in
+capitals; a flag after a redirection; a quoted subcommand or flag; a bypass
+variable among other assignments, or exported by `typeset -gx` or any cluster
+other than a lone `-x`; `HUSKY` quoted through `env` or `export`, or by
+`declare -x` or `typeset -x`; `SKIP` through `env` or `export`;
+`lefthook uninstall` through any other launcher, such as `mise exec` or
+`go tool`; the two forms after git's options above; and anything inside
+`bash -c`, `eval`, a variable or an alias.
+
+Refused though harmless: a message or value that is character for character
+a flag in one of those positions (`git commit -m -n`); after git's own
+options, a message or argument that holds a bypass anywhere, since the `*`
+after `git -` reaches into it (`git -C dir commit -m 'fix commit -n handling'`,
+`git -C dir log --grep commit -n 5`,
+`git -c core.pager=cat config --get core.hooksPath`) — no glob can stop at
+the subcommand; any text naming `GIT_CONFIG_KEY_*` with a hooks path; and a
+command git runs no hook for under a bypass setting (`LEFTHOOK=0 git status`,
+`HUSKY=0 git status`). When a message has to name a bypass, commit it with
+`-F <file>`; search for one without `git -C` or `-c`. The design document has
+the full list and the reasons.
 
 To test a change, run `bin/test-deny-rules` in the clone root; it needs zsh
 and jq. It replays `deny-corpus.tsv`, next to this file, through an offline
