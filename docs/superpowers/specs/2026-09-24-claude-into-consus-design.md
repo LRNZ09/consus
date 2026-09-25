@@ -635,16 +635,17 @@ changed nothing outside it.
   `git status # ; git commit -n` ran. A line continuation does not split a
   command: `git commit \`, then `--no-verify -m x` on the next line, was
   refused.
-- The corpus, kept outside this repo with an offline replica of the matcher
-  (`configs/claude/README.md` says where), holds 291 commands, each with its
-  right answer, not the rules'. The replica agrees with the live verdict on
-  all 291, and the 59 probes run after the change each came out as it
-  predicted. The 109 deny rules, the 90 in "Private values" and 19 older ones
-  against destructive commands, get 246 right. The 45 they get wrong are the
-  gaps listed there: 18 bypasses let through and 27 harmless commands
-  refused, 2 of those by the older rules (`git clean -fdxn`,
-  `git restore --staged .`). With the eight rules they replace, the replica
-  gets 118 wrong, all six commands named there among them.
+- The corpus, `configs/claude/deny-corpus.tsv`, holds 359 commands, each
+  with its right answer, not the rules', and the answer the live matcher
+  gave. `bin/test-deny-rules` replays it through an offline replica of the
+  matcher, which agrees with the live answer on all 359; each probe run after
+  a change to the rules, 59 after the first and 76 after the second, came out
+  as it predicted. The 146 deny rules, the 127 in "Private values" and 19
+  older ones against destructive commands, get 297 right. The 62 they get
+  wrong are the gaps listed there: 28 bypasses let through and 34 harmless
+  commands refused, 2 of those by the older rules (`git clean -fdxn`,
+  `git restore --staged .`). With the eight rules the first change replaced,
+  the replica gets 168 wrong, all six commands named there among them.
 - Replayed through the replica, 8,911 real Bash commands from Claude Code
   transcripts, none over 600 characters, meet 181 refusals, and each is a
   bypass, a probe written for these rules, or a destructive command the older

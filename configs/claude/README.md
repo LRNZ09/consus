@@ -60,16 +60,22 @@ hooks path, and a command git runs no hook for under a bypass setting
 (`LEFTHOOK=0 git status`). When a message has to name a bypass, commit it with
 `-F <file>`. The design document has the full list and the reasons.
 
-To test a change, run `~/Backups/claude-consus-sandbox/test-deny-rules.sh`,
-which is kept outside this repo. It replays `deny-corpus.tsv` — the right
-answer for each of 291 commands, not what the rules happen to do — through an
-offline copy of Claude Code 2.1.273's matcher, against the live
-`settings.json`, and runs none of them; every failure must be a row marked
-`known gap`. Then compare `--predict` with `deny-live.tsv`, the record of live
-probes, and re-probe each row whose verdict changed: a real Bash call,
-prefixed `cd ~/Backups/claude-consus-sandbox/probe &&`, into a scratch
-repository whose hooks leave marker files and whose remote is local. The `cd`
-also puts the whole line through the rules that start with `*`. A rule's
+To test a change, run `bin/test-deny-rules` in the clone root; it needs zsh
+and jq. It replays `deny-corpus.tsv`, next to this file, through an offline
+replica of Claude Code 2.1.273's matcher, against the rules in
+`settings.json`, and runs none of the commands. Each row holds a command, its
+right answer, and the answer the real matcher gave when the command was
+probed live. The test passes when the replica predicts the measured answer
+for every row, and it counts, without failing, the rows whose measured answer
+is not the right one: the known gaps, each of which says so.
+
+Live probes stay the ground truth. After a rule change the test fails on each
+row whose verdict moved: probe each of those, and each row added for the
+change, as a real Bash call into a scratch repository whose hooks leave
+marker files and whose remote is local, prefixed `cd <that repository> &&` —
+`<P>` in a row stands for it. The `cd` also puts the whole line through the
+rules that start with `*`. Write the answer into the row's `measured` column,
+and `known gap` into its why when that answer is not the right one. A rule's
 refusal reads "Permission to use Bash with command … has been denied."; the
 auto-mode classifier's reads otherwise, and measures nothing.
 
