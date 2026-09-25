@@ -227,7 +227,12 @@ This is dotclaude's mechanism, moved:
   `guard` or `guard_cs` row: only the last one counted, so a second row
   silently disabled the first. `check-push` also scans each ref line's local
   and remote names and an annotated tag's message. And `check`'s buffer is
-  removed on an interrupt too.
+  removed on an interrupt too. Three more gaps closed later that day.
+  `check-push` follows a tag that points at another tag, up to 20 deep, and
+  scans every tag's message, not only the outer one's. Its `git log -p` passes
+  `--root`, since `log.showRoot=false` hides a root commit's diff. And a
+  malformed map row is named by its line number in the map,
+  `bad map row at line N`, never by its text, which may be a private value.
 - **`.gitattributes`**, tracked: `configs/claude/settings.json filter=placeholders`.
 - **Per clone**, an INSTALL step: `filter.placeholders.clean` and `.smudge`
   set to `bin/placeholders clean|smudge` — git runs filters from the worktree
@@ -239,7 +244,13 @@ This is dotclaude's mechanism, moved:
   command when its own file list is empty — a typechange-only commit, a
   commit that changes no file, a push of a branch other than `HEAD` — and a
   skipped guard passes everything. Scripts always run. Cherry-pick, rebase, am
-  and merge run no `pre-commit`; `pre-push` is what sees their commits.
+  and merge run no `pre-commit`; `pre-push` is what sees their commits. Since
+  2026-09-25 `pre-push` runs gitleaks too, as a second script,
+  `.lefthook/pre-push/gitleaks.sh`, over every pushed commit the remote lacks.
+  Its `--log-opts` carry the flags `check-push` gives its own `git log`, so
+  user config cannot hide a line from it either. It refuses a ref that is not
+  a commit or a tag of one, because gitleaks passes whatever its `git log`
+  cannot read.
 - **The map** stays untracked at `~/.claude/placeholders.tsv`.
 
 The guards now cover all of consus, not only `settings.json`. Measured before
@@ -260,15 +271,86 @@ Two properties are kept on purpose:
   the guards also scan for mapped *values*, and doctor asserts the filter
   config.
 
-CI stays gitleaks-only. The map is private, so the work-term guard can only
-ever run locally; `pre-push` is its backstop.
+CI runs gitleaks only, over the full history on every push. The map is
+private, so the work-term guard can only ever run locally, and `pre-push` is
+its backstop. gitleaks runs locally too, at `pre-commit` and `pre-push`; CI
+is the one scan that `--no-verify` cannot skip, but it reports a leak only
+once it is public.
 
 `--no-verify` skips `pre-push` too, so `settings.json` denies Claude Code the
-ways around the hooks, in the `Bash(<prefix>*)` style of its other deny rules:
-`git commit` and `git push` with `--no-verify`, `git commit -n`, and any
-command prefixed `LEFTHOOK=0` or `LEFTHOOK=false`. They are prefix matches, so
-they stop an agent retrying a refused commit the obvious way, not a determined
-one: `git -C`, a clustered `-an` or an `env` prefix still gets past them.
+ways around the hooks. Until 2026-09-25 that was eight rules in the
+`Bash(<prefix>*)` style of its others, and they cut both ways. They refused
+`git commit -m 'sort -n output'` and `git commit -m "mentions --no-verify"`,
+through `Bash(git commit * -n*)` and `Bash(git commit * --no-verify*)`, while
+`git -C dir commit --no-verify`, `env LEFTHOOK=0 git push`,
+`git -c core.hooksPath=/dev/null commit` and `git merge --no-verify topic` all
+got past them. Now 90 rules refuse a `commit`, `push`, `merge` or `pull` run
+with the hooks off, and each way of turning them off that a rule can see:
+
+- `--no-verify`, and for `commit` and `push` the abbreviations `--no-veri`
+  and `--no-verif`;
+- `commit`'s `-n`, alone or clustered: `-an`, `-nm`, `-anm`, `-qn`, `-sn`,
+  `-vn`, and `-a -nm`;
+- `LEFTHOOK=0` or `LEFTHOOK=false`, quoted or not, before git, through `env`
+  or by `export`; `LEFTHOOK_EXCLUDE` and `LEFTHOOK_CONFIG` the same ways, and
+  `SKIP` before git;
+- `core.hooksPath` set by `git -c`, with the argument quoted or not,
+  `--config-env`, `git config`, `git clone -c`, `GIT_CONFIG_KEY_<n>` or
+  `GIT_CONFIG_PARAMETERS`;
+- `lefthook uninstall`, bare, by path, or through `npx`, `yarn`, `pnpm`,
+  `bunx` or `npm exec`.
+
+A rule cannot parse, so each one is written for a position. Claude Code
+matches it against the whole text of each subcommand, its `*` is any text,
+spaces and quotes included, and a quote means nothing to it ("Measured
+2026-09-25" below). A rule that looks for `-n` anywhere after `git commit`
+finds it in the message too. So each rule puts the flag where git reads one:
+right after the subcommand (`git commit -n*`), last (`git commit * -n`), or
+before another option (`git commit * -n -*`). git's own options come before
+the subcommand and each starts with `-`, so `git -* commit …` reaches past
+`-C dir` and `-c key=value`, while a command that starts `git commit -m` never
+matches it: a message that only mentions `git push --no-verify` runs. The
+same forms are repeated under `git config *` for an alias, `git rebase *` for
+`-x`, `git submodule *` for `foreach` and `git clone *` for a cloned
+`core.hooksPath`: the commands that run git for you. `merge` and `pull` need
+the whole `--no-verify`, the only form `merge` takes, so
+`git merge --no-verify-signatures` runs.
+
+Where no rule gets it right, each case errs in the direction chosen for it:
+
+- **Let through**, because a rule that caught it would refuse message text.
+  A `commit` flag or abbreviation before a pathspec, or an abbreviation that
+  is not first, takes a rule like `git commit * --no-veri* *`, which matches
+  any message that mentions the flag; the eight old rules caught the whole
+  flag there, at that price. `-an` after another option takes
+  `git commit * -an*`, which matches a message saying "-and". A `LEFTHOOK=0`
+  between other assignments takes `*LEFTHOOK=0 *`, which matches a message
+  naming it. The matcher itself drops a flag after a redirection, and
+  `CORE.HOOKSPATH` in capitals gets past its case-sensitive match. Out of
+  reach altogether: `bash -c`, `eval`, a variable, a one-off `-c alias.…`, a
+  late `-n` in a `rebase -x` command, a quoted subcommand or flag, git by
+  absolute path, and a moved `.git/hooks` file, since `rm`, `mv` and `chmod`
+  rules would refuse real work on hooks.
+- **Refused**, because the text is the flag, byte for byte. A value in a
+  flag's position: `git commit -m -n`, `git commit --message --no-verify`, a
+  pathspec named `--no-verify`, `git merge -m --no-verify`,
+  `git push -o --no-verify`, and a message holding `-n` or `--no-verify`
+  right before another option-like word. Any text naming `GIT_CONFIG_KEY_*`
+  or `GIT_CONFIG_PARAMETERS` with a hooks path, in `echo`, `grep` or a
+  message: those rules start with `*`, so that they also reach a `bash -c` or
+  `eval` string. And a bypass setting on a command that runs no hook,
+  `git -c core.hooksPath=… status` or `LEFTHOOK=0 git status`, since a rule
+  cannot tell which subcommands run hooks.
+
+A message that has to name a bypass is committed with `-F <file>`.
+
+A `PreToolUse` hook that read each command as zsh and git do — split by zsh's
+own lexer, git's options walked, option values skipped — was built on
+2026-09-25 and rejected the same day. It got the positions right, but it is
+some 160 lines of code on every Bash call, and a bug in it would block
+ordinary commands, where a deny rule is enforced by Claude Code itself; and it
+reached no further: `bash -c`, `eval`, a script and an alias were out of its
+reach too.
 
 ### Why the private values stay in settings.json
 
@@ -470,6 +552,103 @@ scratch `CLAUDE_CONFIG_DIR`; no real path was modified.
   subdirectory.
 - BSD `mv -f link file` replaces the file by one `rename(2)`; `mv -f link dir`
   and `ln -s target dir` put the link *inside* an existing directory.
+
+### Measured 2026-09-25
+
+For the push guard's gaps and the deny rules, against lefthook 2.1.14,
+gitleaks 8.30.1, git 2.55.0, jq 1.8.2 and Claude Code 2.1.273 in auto mode.
+Every experiment ran in a throwaway repository. The rules were measured by
+real Bash calls, each run in a scratch repository whose hooks leave marker
+files and whose remote is a local bare repository, so a call that got through
+changed nothing outside it.
+
+- lefthook gives every `pre-push` script with `use_stdin: true` all of git's
+  ref lines, not a share of them: three scripts in sequence, three under
+  `parallel: true`, and one that read only the first line all left the others
+  the full input. Each gets the remote as `$1` and its URL as `$2`.
+- gitleaks runs `git -C . log -p -U0 <log-opts>`, so user config reaches it.
+  With `--log-opts` holding only the range, a real finding passed with exit 0
+  under `color.ui=always` or `color.diff=always`, a textconv driver,
+  `log.showRoot=false` on a root commit, and a merge's own changes. Adding
+  `--no-color --no-ext-diff --no-textconv --root --diff-merges=first-parent`
+  closes all five. `diff.external` and `GIT_EXTERNAL_DIFF` never blinded it.
+- gitleaks exits 0, "0 commits scanned", for an unknown sha and for a blob.
+- Under `log.showRoot=false`, `git log -p` shows no diff for a root commit;
+  `--root` brings it back.
+- jq prints a map-row `error()` as
+  `jq: error (at <stdin>:0): bad map row at line N`.
+- git's parse-options takes any unique prefix of a long option. Measured
+  through `git rev-parse --parseopt`, the same parser, with each command's
+  long options from `--git-completion-helper-all`: `commit` and `push` take
+  `--no-veri`, `--no-verif` and `--no-verify`, while `--no-v` to `--no-ver`
+  are ambiguous with `--no-verbose`. `merge` takes only the full
+  `--no-verify`: `--no-verify-signatures` makes every shorter prefix
+  ambiguous. `--verify` and `--no-no-verify` are its negation, and run the
+  hooks.
+- Short flags cluster: `-anm msg` is `-a -n -m msg`. A flag that takes a
+  value takes the rest of the cluster, or else the next word, so `-mn` and
+  `-m -n` are messages; `-u` and `-S` take only a glued value, so `-uno` is
+  `-u no`. An option after a pathspec still counts; nothing after `--` does.
+- git's own options are not parse-options and never abbreviate. `-c` takes
+  only a separate word (`-cfoo.bar=1` is an unknown option); `--config-env`,
+  `--git-dir`, `--work-tree`, `--namespace` and `--attr-source` take either
+  `=value` or the next word. A config name matches in any case:
+  `-c FOO.BAR=2` reads back as `foo.bar`.
+- The script lefthook installs in `.git/hooks` exits at once when `LEFTHOOK`
+  is `0`.
+- A refusal by a deny rule reads "Permission to use Bash with command … has
+  been denied."; the auto-mode classifier refused none of the probes.
+- A rule is matched against the text of each subcommand on its own. A
+  compound is split at `&&`, `||`, `;`, `|`, `&` and newlines, and a command
+  inside `( )`, `{ }`, an `if` or `for` body, `$( )`, backticks or `<( )` is
+  one of its own: a bypass was refused in each of them. The line as a whole
+  is not matched: `git push -n && echo --no-verify` and
+  `echo GIT_CONFIG_KEY_0 && echo hooksPath` both ran.
+- Except when a compound holds a `cd`: then its whole text is matched too.
+  `cd <repo> && echo GIT_CONFIG_KEY_0 && echo hooksPath` was refused, by
+  `Bash(*GIT_CONFIG_KEY_*ooks*ath*)`. That text starts with `cd`, so only a
+  rule that starts with `*` can match it.
+- Quotes are kept as typed, and `*` matches them like any other character:
+  `git "commit" --no-verify -m x`, `git commit -m x "--no-verify"` and
+  `"git" 'commit' -"n"` ran. Only a quoted program name is unquoted:
+  `'LEFTHOOK=0' git push` was refused, and so was `g\it commit --no-verify`.
+- Matching is case-sensitive: `git -c CORE.HOOKSPATH=/x push` ran.
+- Besides the documented `timeout`, `time`, `nice`, `nohup`, `stdbuf`,
+  `command` and `noglob`, 2.1.273 strips `env`, `sudo` and `exec`, which the
+  documentation says it does not: `env git commit --no-verify -m x`,
+  `sudo git commit -n -m x` and `exec git commit -n -m x` were refused.
+  `echo x | xargs git commit -n -m` was refused too, and the refusal named
+  only `xargs git commit -n -m`. `/usr/bin/git commit -n` ran.
+- A rule is matched against the text with its leading assignments and with
+  all of them stripped at once, never with some: `Bash(LEFTHOOK=0 *)` refused
+  `LEFTHOOK=0 git push origin main`, and
+  `FOO=1 LEFTHOOK=0 BAR=2 git merge topic` ran.
+- A heredoc's operator, delimiter and body are dropped before matching, so
+  `git commit -F - --no-verify <<'EOF'` was refused by a rule that wants
+  `--no-verify` last, and no heredoc body is ever matched, not even inside
+  `$( )`: an `echo "$(cat <<'EOF'` whose body holds `git push --no-verify`
+  ran. A here-string keeps its text:
+  `cat <<< "GIT_CONFIG_KEY_0=core.hooksPath is refused"` was refused.
+- A file redirection drops itself and every word after it:
+  `git commit -m x 2>&1 -n` ran. A comment is dropped:
+  `git commit -m x --no-verify # hooks are slow` was refused, and
+  `git status # ; git commit -n` ran. A line continuation does not split a
+  command: `git commit \`, then `--no-verify -m x` on the next line, was
+  refused.
+- The corpus, kept outside this repo with an offline replica of the matcher
+  (`configs/claude/README.md` says where), holds 291 commands, each with its
+  right answer, not the rules'. The replica agrees with the live verdict on
+  all 291, and the 59 probes run after the change each came out as it
+  predicted. The 109 deny rules, the 90 in "Private values" and 19 older ones
+  against destructive commands, get 246 right. The 45 they get wrong are the
+  gaps listed there: 18 bypasses let through and 27 harmless commands
+  refused, 2 of those by the older rules (`git clean -fdxn`,
+  `git restore --staged .`). With the eight rules they replace, the replica
+  gets 118 wrong, all six commands named there among them.
+- Replayed through the replica, 8,911 real Bash commands from Claude Code
+  transcripts, none over 600 characters, meet 181 refusals, and each is a
+  bypass, a probe written for these rules, or a destructive command the older
+  rules refuse on purpose.
 
 ### From the documentation, checked 2026-09-24
 

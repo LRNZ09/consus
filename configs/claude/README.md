@@ -29,6 +29,50 @@ memory directory, derived from the payload's `cwd`.
   about to run, reminds you to prefer its MCP equivalent. A new
   `<cli><TAB><label>` row covers a new tool; no script change needed.
 
+## Hook-bypass deny rules
+
+`permissions.deny` refuses a Bash call that runs `git commit`, `push`, `merge`
+or `pull` with the git hooks off, or that turns them off: `--no-verify` and
+the abbreviations git takes for it; `commit`'s `-n`, alone or in a cluster
+such as `-an`; `LEFTHOOK=0` or `LEFTHOOK=false`, `LEFTHOOK_EXCLUDE`,
+`LEFTHOOK_CONFIG` or `SKIP`, set before git, through `env` or by `export`;
+`core.hooksPath` set by `git -c`, `--config-env`, `git config`, `git clone -c`
+or `GIT_CONFIG_*`; and `lefthook uninstall`, however it is launched. Each form
+is refused after `git -C dir` too, and the flags also inside `git config` (an
+alias), `git rebase` and `git submodule`.
+
+The rules are position-aware. Claude Code matches each subcommand's text
+against a glob whose `*` is any text, quotes included, so no rule can tell a
+flag from message text. Each rule puts the flag where git reads one: right
+after the subcommand (`git commit -n*`), last (`git commit * -n`), or before
+another option (`git commit * -n -*`). git's own options are reached as
+`git -* commit …`, which a command that starts `git commit -m` never matches.
+So `git commit -m 'sort -n output'` and `git push -n` run.
+
+Known gaps, each deliberate. Getting through: a flag before a pathspec, a
+`commit` abbreviation or cluster that is not right after the subcommand,
+`CORE.HOOKSPATH` in capitals, a flag after a redirection, a quoted subcommand
+or flag, and anything inside `bash -c`, `eval`, a variable or an alias.
+Refused though harmless: a
+message or value that is character for character a flag in one of those
+positions (`git commit -m -n`), any text naming `GIT_CONFIG_KEY_*` with a
+hooks path, and a command git runs no hook for under a bypass setting
+(`LEFTHOOK=0 git status`). When a message has to name a bypass, commit it with
+`-F <file>`. The design document has the full list and the reasons.
+
+To test a change, run `~/Backups/claude-consus-sandbox/test-deny-rules.sh`,
+which is kept outside this repo. It replays `deny-corpus.tsv` — the right
+answer for each of 291 commands, not what the rules happen to do — through an
+offline copy of Claude Code 2.1.273's matcher, against the live
+`settings.json`, and runs none of them; every failure must be a row marked
+`known gap`. Then compare `--predict` with `deny-live.tsv`, the record of live
+probes, and re-probe each row whose verdict changed: a real Bash call,
+prefixed `cd ~/Backups/claude-consus-sandbox/probe &&`, into a scratch
+repository whose hooks leave marker files and whose remote is local. The `cd`
+also puts the whole line through the rules that start with `*`. A rule's
+refusal reads "Permission to use Bash with command … has been denied."; the
+auto-mode classifier's reads otherwise, and measures nothing.
+
 ## Global instructions
 
 Nothing imports `AGENTS.md`: there is no `~/.claude/CLAUDE.md`. Claude Code

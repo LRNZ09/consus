@@ -123,9 +123,12 @@ Claude Code reads empty settings without a word, and its next save writes a
 
 ## Secret scanning
 
-`lefthook` runs `gitleaks` over staged changes before every commit, once
-`lefthook install` has been run in this clone — which `bin/doctor` asserts,
-because a clone without it is silently unprotected until the next push.
+`lefthook` runs `gitleaks` over staged changes before every commit, and again
+at `pre-push` over every pushed commit the remote lacks — which covers the
+commits no `pre-commit` saw: cherry-picks, rebases, merges, and anything
+committed with the hooks off. Both need `lefthook install` in this clone,
+which `bin/doctor` asserts, because a clone without it is silently unprotected
+until CI flags a push, by which time the commit is public.
 `.github/workflows/gitleaks.yml` re-scans the full history on every push, as
 the backstop `--no-verify` cannot bypass. Rules live in `.gitleaks.toml`, which
 flags any committed email address that is not a GitHub noreply.
@@ -139,9 +142,17 @@ am and merge run no `pre-commit`, so `pre-push` is what sees their commits.
 `configs/claude/settings.json` for its placeholder on the way into git and back
 on checkout; `.gitattributes` names the file, and the filter itself is
 per-clone git config (INSTALL.md step 2). Unlike gitleaks it cannot run in CI —
-the map is private — so `pre-push` is its backstop. `settings.json`'s deny rules
-keep Claude Code from retrying a refused commit or push with the hooks off:
-`--no-verify`, `git commit -n`, or a `LEFTHOOK=0` or `LEFTHOOK=false` prefix.
+the map is private — so `pre-push` is its backstop.
+
+`settings.json`'s deny rules keep Claude Code from retrying a refused commit,
+push or merge with the hooks off: `--no-verify`, `commit -n`, `LEFTHOOK=0` or
+`LEFTHOOK=false`, `core.hooksPath` set by `git -c` or `git config`, and
+`lefthook uninstall`. A rule matches text, not flags, so each one sits where
+git reads a flag — right after the subcommand, last, or before another
+option — and a message such as `git commit -m 'sort -n output'` still runs.
+They stop an agent retrying the obvious way, not a determined one: `bash -c`,
+`eval`, a script or an alias is out of their reach. `configs/claude/README.md`
+says what they catch and what they miss.
 
 ## Why any of this
 
