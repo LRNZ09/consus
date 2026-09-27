@@ -16,12 +16,14 @@
 # measured by running this script on its own, since lefthook 2.1.14 splits its
 # arguments at spaces first. So the commits the remote-tracking refs hold are
 # left out only when $1 names one of this clone's remotes and holds no
-# whitespace; any other push scans each commit's whole history. git remote add
-# refuses a name with a space, but git config can make one, and grep -x would
-# read a newline in $1 as two names.
+# whitespace and no glob character (* ? [ ] or a backslash); any other push
+# scans each commit's whole history. git remote add refuses a name with a
+# space, *, ? or [, but git config can make one, and grep -x would read a
+# newline in $1 as two names. --remotes= takes its value as a glob, so a
+# remote named * left out every commit any remote's tracking refs hold.
 not=
 case $1 in
-'' | *[[:space:]]*) ;;
+'' | *[[:space:]]* | *[][*?\\]*) ;;
 *) if git remote | command grep -qxF -- "$1"; then not=" --not --remotes=$1"; fi ;;
 esac
 while read -r _ sha _ _; do
