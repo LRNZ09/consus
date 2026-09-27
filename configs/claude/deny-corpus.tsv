@@ -16,7 +16,7 @@
 # Nothing here ever runs. Every name, path and message is invented. The count
 # below is the number of rows, and the test checks it.
 #
-# cases: 621
+# cases: 624
 #
 # --- the six commands the eight old rules got wrong
 human-msg-sort-n	allow	allow	git commit -m 'sort -n output'	-n is message text, not a flag
@@ -693,3 +693,8 @@ cl-cluster	deny	allow	git clone -qc core.hooksPath=/dev/null /nonexistent-consus
 cl-abbrev	deny	allow	git clone --conf core.hooksPath=/dev/null /nonexistent-consus-probe-dir/remote.git /nonexistent-consus-probe-dir/clone	clone takes the abbreviation --conf | known gap
 cl-gitc-other	allow	deny	git -c core.autocrlf=false clone /nonexistent-consus-probe-dir/webhooks.git /nonexistent-consus-probe-dir/path	another core key by git's own -c: git -c *core.*ooks*ath* reaches hooks and path in the source and target | known gap
 cl-C-c-other	allow	deny	git -C /nonexistent-consus-probe-dir clone -c core.autocrlf=false /nonexistent-consus-probe-dir/webhooks.git /nonexistent-consus-probe-dir/path	clone -c after git -C: git -* -c *core.*ooks*ath* reaches hooks and path in the source and target | known gap
+#
+# --- the rules that start with * reach into bash -c and eval
+reach-bash-c-gitcfg	deny	deny	bash -c 'GIT_CONFIG_COUNT=1 GIT_CONFIG_KEY_0=core.hooksPath GIT_CONFIG_VALUE_0=/dev/null git -C /nonexistent-consus-probe-dir commit -m x'	GIT_CONFIG_KEY_* inside a bash -c string: the rule starts with *
+reach-eval-lu	deny	deny	eval './node_modules/.bin/lefthook uninstall'	lefthook uninstall by path inside eval: the rule starts with *
+reach-bash-c-n	deny	allow	bash -c 'git -C /nonexistent-consus-probe-dir commit -n -m x'	commit -n inside a bash -c string: git -* commit -n* starts with git, and the string does not | known gap

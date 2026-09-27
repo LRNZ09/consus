@@ -91,8 +91,11 @@ value (`LEFTHOOK='0'`), and `LEFTHOOK_EXCLUDE`, `LEFTHOOK_CONFIG` or `SKIP`
 at all; `core.hooksPath` set in a config file that git reads, through
 `GIT_CONFIG_GLOBAL`, `GIT_CONFIG_SYSTEM` or `-c include.path=<file>`;
 `lefthook uninstall` through any other launcher, such as `mise exec` or
-`go tool`; the two forms after git's options above; and anything inside
-`bash -c`, `eval`, a variable or an alias.
+`go tool`; the two forms after git's options above; anything inside a
+variable or an alias; and anything else inside `bash -c` or `eval`: only
+the rules that start with `*` (`GIT_CONFIG_KEY_*`, `GIT_CONFIG_PARAMETERS=`,
+`*/lefthook uninstall`) reach into their strings, so
+`bash -c 'git commit -n -m x'` runs.
 
 Refused though harmless: a message or value that is character for character
 a flag in one of those positions (`git commit -m -n`); after git's own

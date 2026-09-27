@@ -151,10 +151,12 @@ push, merge or pull with the hooks off: `--no-verify`, `commit -n`,
 matches text, not flags, so each one sits where git reads a flag — right
 after the subcommand, last, or before another option — and a message such as
 `git commit -m 'sort -n output'` still runs. They stop an agent retrying the
-obvious way, not a determined one: `bash -c`, `eval`, a script or an alias is
-out of their reach. `configs/claude/README.md` says what they catch and what
-they miss. `bin/test-deny-rules` checks them against commands probed live,
-and each of them must be the only rule that refuses one of those commands.
+obvious way, not a determined one: a script or an alias is out of their
+reach, and so is a `bash -c` or `eval` string, for all but the few rules
+that start with `*`, such as the one for `GIT_CONFIG_KEY_<n>`.
+`configs/claude/README.md` says what they catch and what they miss.
+`bin/test-deny-rules` checks them against commands probed live, and each of
+them must be the only rule that refuses one of those commands.
 
 ## Why any of this
 

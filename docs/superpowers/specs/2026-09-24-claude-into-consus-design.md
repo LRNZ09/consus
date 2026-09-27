@@ -407,14 +407,17 @@ or has no rule yet:
   takes a `*` inside the key, `core.*ooks*ath`, which refused any `core.*`
   setting whose source or target held `ooks` then `ath`. The matcher itself
   drops a flag after a redirection, and `CORE.HOOKSPATH` in capitals gets
-  past its case-sensitive match. Out of
-  reach altogether: `bash -c`, `eval`, a variable, a one-off `-c alias.…`, a
-  late `-n` in a `rebase -x` or `submodule foreach` command or in an alias
-  (`'commit -a -n'`), a quoted subcommand or flag, git by absolute path, a
-  config file that sets `core.hooksPath` and that git reads through
-  `GIT_CONFIG_GLOBAL`, `GIT_CONFIG_SYSTEM` or `-c include.path=<file>`, since
-  a rule sees only the file's name, and a moved `.git/hooks` file, since
-  `rm`, `mv` and `chmod` rules would refuse real work on hooks.
+  past its case-sensitive match. Out of reach altogether: anything else
+  inside `bash -c` or `eval`, since only the rules that start with `*`
+  (`GIT_CONFIG_KEY_*`, `GIT_CONFIG_PARAMETERS=` and `*/lefthook uninstall`)
+  reach into their strings, so `bash -c 'git commit -n -m x'` runs; a
+  variable, a one-off `-c alias.…`, a late `-n` in a `rebase -x` or
+  `submodule foreach` command or in an alias (`'commit -a -n'`), a quoted
+  subcommand or flag, git by absolute path, a config file that sets
+  `core.hooksPath` and that git reads through `GIT_CONFIG_GLOBAL`,
+  `GIT_CONFIG_SYSTEM` or `-c include.path=<file>`, since a rule sees only
+  the file's name, and a moved `.git/hooks` file, since `rm`, `mv` and
+  `chmod` rules would refuse real work on hooks.
 - **Let through, with no rule for it yet.** The two forms not repeated after
   git's own options, above. A bypass variable exported by `typeset -gx`, by
   any other cluster than a lone `-x`, or by `readonly -x`. `LEFTHOOK` set by
@@ -872,9 +875,13 @@ The same way, against the same versions.
   and `git -* -c` rules. With a harmless key in a scratch clone, git 2.55
   stored `true` for `--config key` with no value, and took `-ckey=1`,
   `-qc key=1` and `--conf key=1`.
-- The corpus now holds 621 commands. The 233 deny rules, 214 against a
-  hooks-off run and the 19 older ones, get 531 right; the 90 they get wrong
-  are the gaps listed in "Private values": 47 bypasses let through and 43
+- A rule that starts with `*` reaches into a `bash -c` or `eval` string:
+  `bash -c 'GIT_CONFIG_COUNT=1 GIT_CONFIG_KEY_0=core.hooksPath …'` and
+  `eval './node_modules/.bin/lefthook uninstall'` were refused, while
+  `bash -c 'git -C … commit -n -m x'` ran.
+- The corpus now holds 624 commands. The 233 deny rules, 214 against a
+  hooks-off run and the 19 older ones, get 533 right; the 91 they get wrong
+  are the gaps listed in "Private values": 48 bypasses let through and 43
   harmless commands refused, the same 2 of those by the older rules. Each of
   the 214 is the only rule that refuses some row, so deleting any one of them
   fails the test.
