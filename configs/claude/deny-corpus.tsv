@@ -419,6 +419,19 @@ al-C-hookspath	deny	allow	git -C <P> config alias.ci '-c core.hooksPath=/dev/nul
 al-log-n	allow	allow	git config alias.last 'log -n 1'	-n belongs to log
 al-plain	allow	allow	git config alias.ci 'commit -v'	an alias that keeps the hooks on
 #
+# --- git clone --config, and more clusters inside rebase -x and submodule foreach
+cl-config	deny	deny	git clone -q --config core.hooksPath=/dev/null ../probe-remote.git ../clone-long	--config, the long form of clone's -c
+cl-config-eq	deny	deny	git clone --config=core.hooksPath=/dev/null ../probe-remote.git ../clone-eq	--config=
+cl-C-config	deny	deny	git -C <P> clone --config core.hooksPath=/dev/null ../probe-remote.git ../clone-C	--config after git -C
+rb-qn	deny	deny	git rebase -x 'git commit -qn --amend --no-edit' HEAD~1	clustered -qn inside rebase -x
+rb-sn	deny	deny	git rebase -x 'git commit -sn --amend --no-edit' HEAD~1	clustered -sn inside rebase -x
+rb-vn	deny	deny	git rebase -x 'git commit -vn --amend --no-edit' HEAD~1	clustered -vn inside rebase -x
+rb-a-nm	deny	deny	git rebase -x 'git commit -a -nm fixup' HEAD~1	-a -nm inside rebase -x
+sm-qn	deny	deny	git submodule foreach 'git commit -qn -m wip'	clustered -qn inside submodule foreach
+sm-sn	deny	deny	git submodule foreach 'git commit -sn -m wip'	clustered -sn inside submodule foreach
+sm-vn	deny	deny	git submodule foreach 'git commit -vn -m wip'	clustered -vn inside submodule foreach
+sm-a-nm	deny	deny	git submodule foreach 'git commit -a -nm wip'	-a -nm inside submodule foreach
+#
 # --- forms no rule names
 pc-skip-env	deny	allow	env SKIP=gitleaks git commit -m x	SKIP through env | known gap
 pc-skip-export	deny	allow	export SKIP=gitleaks && git commit -m x	SKIP by export | known gap
