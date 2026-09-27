@@ -291,7 +291,7 @@ ways around the hooks. Until 2026-09-25 that was eight rules in the
 through `Bash(git commit * -n*)` and `Bash(git commit * --no-verify*)`, while
 `git -C dir commit --no-verify`, `env LEFTHOOK=0 git push`,
 `git -c core.hooksPath=/dev/null commit` and `git merge --no-verify topic` all
-got past them. Now 163 rules refuse a `commit`, `push`, `merge` or `pull` run
+got past them. Now 214 rules refuse a `commit`, `push`, `merge` or `pull` run
 with the hooks off, and each way of turning them off that a rule can see:
 
 - `--no-verify`, and for `commit` and `push` the abbreviations `--no-veri`
@@ -305,11 +305,13 @@ with the hooks off, and each way of turning them off that a rule can see:
   `typeset -x`, with a value or by name, and `LEFTHOOK_BIN` bare too;
   `HUSKY=0` before git, through `env` or bare, and `HUSKY` by `export`,
   `declare -x` or `typeset -x`, with a value or by name; and `SKIP` before
-  git;
+  git. An export rule wants the name as a word: at the end of the text, or
+  followed by `=` or a space;
 - `LEFTHOOK=0`, `LEFTHOOK=false`, `LEFTHOOK_BIN=` and `HUSKY=0` inside a
   `rebase -x` or `submodule foreach` command;
 - `core.hooksPath` set by `git -c`, with the argument quoted or not,
-  `--config-env`, `git config`, `git clone -c` or `--config`,
+  `--config-env`, `git config`, `git clone -c`, `--config` or `--config=`
+  with the key spelt `core.hooksPath` or `core.hookspath`, quoted or not,
   `GIT_CONFIG_KEY_<n>` or `GIT_CONFIG_PARAMETERS`;
 - `lefthook uninstall`, bare, by path, or through `npx`, `yarn`, `pnpm`,
   `bunx` or `npm exec`.
@@ -344,7 +346,19 @@ such a command ran too, `git rebase -x 'LEFTHOOK=0 git commit --amend'` and
 after `git`. Sixteen new rules refuse `LEFTHOOK=0`, `LEFTHOOK=false`,
 `LEFTHOOK_BIN=` and `HUSKY=0` anywhere after `git rebase` or
 `git submodule`, and after `git -* rebase` or `git -* submodule`. And `SKIP`
-under `set -a` ran, which stays a gap: see below.
+under `set -a` ran, which stays a gap: see below. Two sets of rules reached
+too far. `export *HUSKY*` and its eleven kin, for `LEFTHOOK_BIN`,
+`LEFTHOOK_CONFIG` and `LEFTHOOK_EXCLUDE` and for `declare -x` and
+`typeset -x`, found the name anywhere, so `export HUSKY_DEBUG=1` and
+`export HUSKY_GIT_PARAMS=…` were refused; 36 rules in their place want the
+name at the end of the text, or followed by `=` or a space. And
+`git clone *--config*core.*ooks*ath*`, with its `-c` and `git -* clone`
+kin, refused any `core.*` setting whose source or target held `ooks` then
+`ath`, as `git clone --config core.autocrlf=false …/webhooks.git ~/path`
+does; 30 rules in their place spell the key out, `core.hooksPath` or
+`core.hookspath` after `--config`, `--config=` or `-c`, bare or after a
+single or a double quote, so other mixed-case spellings join
+`CORE.HOOKSPATH` as a gap.
 
 A rule cannot parse, so each one is written for a position. Claude Code
 matches it against the whole text of each subcommand, its `*` is any text,
@@ -389,8 +403,11 @@ or has no rule yet:
   (`set -a; SKIP=gitleaks; git commit`) takes `SKIP=*`, which would refuse
   every command run under a `SKIP` of its own, a name other tools use too
   (`SKIP=slow npm test`), since no glob tells a bare assignment from one
-  before a command. The matcher itself drops a flag after a redirection, and
-  `CORE.HOOKSPATH` in capitals gets past its case-sensitive match. Out of
+  before a command. A `git clone` key in mixed case (`core.HooksPath`)
+  takes a `*` inside the key, `core.*ooks*ath`, which refused any `core.*`
+  setting whose source or target held `ooks` then `ath`. The matcher itself
+  drops a flag after a redirection, and `CORE.HOOKSPATH` in capitals gets
+  past its case-sensitive match. Out of
   reach altogether: `bash -c`, `eval`, a variable, a one-off `-c alias.…`, a
   late `-n` in a `rebase -x` or `submodule foreach` command or in an alias
   (`'commit -a -n'`), a quoted subcommand or flag, git by absolute path, a
@@ -402,9 +419,12 @@ or has no rule yet:
   git's own options, above. A bypass variable exported by `typeset -gx`, by
   any other cluster than a lone `-x`, or by `readonly -x`. `LEFTHOOK` set by
   `typeset`, `declare` or `local` without `-x`, then exported by name
-  (`typeset LEFTHOOK=0; export LEFTHOOK`). `HUSKY` quoted through `env`.
-  `SKIP` through `env` or `export`. Inside a `rebase -x` or `foreach`
-  command, a bypass variable with a quoted value
+  (`typeset LEFTHOOK=0; export LEFTHOOK`). A name quoted in an export
+  (`export 'HUSKY'`). `HUSKY` quoted through `env`. `SKIP` through `env` or
+  `export`. `git clone` with its `-c` stuck to the value
+  (`-ccore.hooksPath=…`) or clustered after another flag (`-qc`), or with
+  the abbreviation `--conf`, all of which git takes. Inside a `rebase -x` or
+  `foreach` command, a bypass variable with a quoted value
   (`git rebase -x "LEFTHOOK='0' git commit" …`), and `LEFTHOOK_EXCLUDE`,
   `LEFTHOOK_CONFIG` or `SKIP` set in it at all. And `lefthook uninstall`
   through any other launcher, such as the `mise exec`, `go tool`,
@@ -418,19 +438,25 @@ or has no rule yet:
   reaches as far into the line as it needs to:
   `git -C dir commit -m 'fix commit -n handling'`,
   `git -c user.name=x commit -m 'refuse git merge --no-verify here'`,
-  `git -C dir log --grep commit -n 5` and
-  `git -c core.pager=cat config --get core.hooksPath`; no glob can stop at
-  the subcommand. Any `git config` text holding `commit` followed by `-n`,
-  `-an`, `-qn`, `-sn` or `-vn`, or `--no-veri`, since the alias rules look
-  anywhere after `git config`: a value pattern in
+  `git -C dir log --grep commit -n 5`,
+  `git -c core.pager=cat config --get core.hooksPath` and
+  `git -c core.autocrlf=false clone …/webhooks.git ~/path`; no glob can stop
+  at the subcommand. A `git clone` key that only starts like
+  `core.hooksPath` (`--config core.hooksPathX=…`): the clone rules stop at
+  the key, since `--config core.hooksPath` with no value stores `true`, a
+  hooks directory that holds none. Any `git config` text holding `commit`
+  followed by `-n`, `-an`, `-qn`, `-sn` or `-vn`, or `--no-veri`, since the
+  alias rules look anywhere after `git config`: a value pattern in
   `git config --get-regexp '^alias[.]' 'commit -n'` or
   `git config --unset-all alias.ci 'commit -n'`. Any text naming
   `GIT_CONFIG_KEY_*` or `GIT_CONFIG_PARAMETERS` with a hooks path, in
   `echo`, `grep` or a message: those rules start with `*`, so that they also
   reach a `bash -c` or `eval` string. An `export`, `declare -x` or
-  `typeset -x` that names `HUSKY`, `LEFTHOOK_BIN`, `LEFTHOOK_CONFIG` or
+  `typeset -x` of `HUSKY`, `LEFTHOOK_BIN`, `LEFTHOOK_CONFIG` or
   `LEFTHOOK_EXCLUDE`, whatever its value (`export HUSKY=1`), since the rule
-  that refuses one exported by name looks for the name alone; and
+  that refuses one with a value looks for the name and `=` alone; and any
+  whose text holds one of those names before a space or `=`, in a value
+  (`export RELEASE_NOTE="bump HUSKY to 9"`) or at the end of a longer name.
   `LEFTHOOK_BIN=…` before any command, `lefthook run` included. Any
   `git rebase` or `git submodule` text naming `LEFTHOOK=0`,
   `LEFTHOOK=false`, `LEFTHOOK_BIN=` or `HUSKY=0`, whatever the command it
@@ -828,11 +854,29 @@ The same way, against the same versions.
   `LEFTHOOK='0'` quoted inside `rebase -x`, `LEFTHOOK_EXCLUDE`,
   `LEFTHOOK_CONFIG` and `SKIP` inside those commands, and `SKIP` under
   `set -a`.
-- The corpus now holds 493 commands. The 182 deny rules, 163 against a
-  hooks-off run and the 19 older ones, get 412 right; the 81 they get wrong
-  are the gaps listed in "Private values": 42 bypasses let through and 39
+- Under the 36 export rules that replaced the twelve, each of `export`,
+  `declare -x` and `typeset -x` with each of the four names was refused in
+  three forms, by name, with a value and before another name (36 probes),
+  and ran for a longer name in the same three forms, such as
+  `export HUSKY_DEBUG=1` (36 more). `export HUSKY_GIT_PARAMS="$*"` ran,
+  `export RELEASE_NOTE="bump HUSKY to 9"` was refused, and
+  `typeset HUSKY=0; export 'HUSKY'; git -C … commit -m x` ran.
+- Under the 30 clone rules that replaced the three, each spelling was
+  refused, 30 probes with a source that does not exist, and 15 with
+  `core.autocrlf=false` in its place and a source and target named
+  `…/webhooks.git` and `…/path` ran. `--config core.hooksPath` with no value
+  and `--config core.hooksPathX=/x` were refused; `core.HooksPath`,
+  `-ccore.hooksPath=…`, `-qc core.hooksPath=…` and `--conf core.hooksPath=…`
+  ran. `git -c core.autocrlf=false clone …/webhooks.git …/path` and
+  `git -C … clone -c core.autocrlf=false …` stay refused, by the `git -c`
+  and `git -* -c` rules. With a harmless key in a scratch clone, git 2.55
+  stored `true` for `--config key` with no value, and took `-ckey=1`,
+  `-qc key=1` and `--conf key=1`.
+- The corpus now holds 621 commands. The 233 deny rules, 214 against a
+  hooks-off run and the 19 older ones, get 531 right; the 90 they get wrong
+  are the gaps listed in "Private values": 47 bypasses let through and 43
   harmless commands refused, the same 2 of those by the older rules. Each of
-  the 163 is the only rule that refuses some row, so deleting any one of them
+  the 214 is the only rule that refuses some row, so deleting any one of them
   fails the test.
 
 ### From the documentation, checked 2026-09-24

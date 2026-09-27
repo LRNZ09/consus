@@ -16,7 +16,7 @@
 # Nothing here ever runs. Every name, path and message is invented. The count
 # below is the number of rows, and the test checks it.
 #
-# cases: 493
+# cases: 621
 #
 # --- the six commands the eight old rules got wrong
 human-msg-sort-n	allow	allow	git commit -m 'sort -n output'	-n is message text, not a flag
@@ -380,7 +380,7 @@ hk-dq	deny	deny	HUSKY="0" git commit -m x	quoted: a quoted first word is unquote
 hk-env	deny	deny	env HUSKY=0 git push	through env
 hk-export	deny	deny	export HUSKY=0 && git commit -m x	by export
 hk-env-sq	deny	allow	env HUSKY='0' git push	quoted, through env | known gap
-hk-export-dq	deny	deny	export HUSKY="0"; git push	quoted, by export: export *HUSKY* names no value
+hk-export-dq	deny	deny	export HUSKY="0"; git push	quoted, by export: export *HUSKY=* names no value
 hk-declare	deny	deny	declare -x HUSKY=0; git commit -m x	by declare -x
 hk-one	allow	allow	HUSKY=1 git commit -m x	HUSKY=1 keeps the hooks on
 hk-msg	allow	allow	git commit -m 'skip husky with HUSKY=0'	message text
@@ -389,12 +389,12 @@ lb-export-name	deny	deny	LEFTHOOK_BIN=true; export LEFTHOOK_BIN; git commit -m x
 lb-declare-name	deny	deny	LEFTHOOK_BIN=true; declare -x LEFTHOOK_BIN; git commit -m x	set first, then exported by declare -x
 lb-set-a	deny	deny	set -a; LEFTHOOK_BIN=true; git commit -m x	set -a exports a plain assignment, which LEFTHOOK_BIN=* refuses
 lb-lefthook-run	allow	deny	LEFTHOOK_BIN=./bin/lefthook lefthook run pre-commit	runs lefthook itself, hooks and all, but LEFTHOOK_BIN=* refuses whatever follows it | known gap
-lx-export-name	deny	deny	LEFTHOOK_EXCLUDE=gitleaks; export LEFTHOOK_EXCLUDE; git push	set first, then exported by name: export *LEFTHOOK_EXCLUDE* names no value
+lx-export-name	deny	deny	LEFTHOOK_EXCLUDE=gitleaks; export LEFTHOOK_EXCLUDE; git push	set first, then exported by name: export *LEFTHOOK_EXCLUDE finds the name at the end
 lc-export-name	deny	deny	LEFTHOOK_CONFIG=/dev/null; export LEFTHOOK_CONFIG; git commit -m x	set first, then exported by name
 hk-export-name	deny	deny	HUSKY=0; export HUSKY; git commit -m x	set first, then exported by name
 hk-set-a	deny	deny	set -a; HUSKY=0; git commit -m x	set -a exports it; the rule HUSKY=0 refuses the bare assignment
 hk-typeset	deny	deny	typeset -x HUSKY=0 && git push	by typeset -x
-hk-export-one	allow	deny	export HUSKY=1 && git commit -m x	HUSKY=1 keeps the hooks on, but export *HUSKY* refuses any export that names it | known gap
+hk-export-one	allow	deny	export HUSKY=1 && git commit -m x	HUSKY=1 keeps the hooks on, but export *HUSKY=* refuses it whatever the value | known gap
 #
 # --- pull and git config after git's own options, and aliases
 pull-C	deny	deny	git -C <P> pull --no-verify	git -C before pull
@@ -561,3 +561,135 @@ rbv-lx	deny	allow	git rebase -x 'LEFTHOOK_EXCLUDE=gitleaks git commit --amend --
 smv-lc	deny	allow	git submodule foreach 'LEFTHOOK_CONFIG=/dev/null git commit -m wip'	LEFTHOOK_CONFIG inside submodule foreach: no rule names it there | known gap
 smv-skip	deny	allow	git submodule foreach 'SKIP=gitleaks git commit -m wip'	SKIP inside submodule foreach: no rule names it there | known gap
 pc-skip-set-a	deny	allow	set -a; SKIP=gitleaks; git -C /nonexistent-consus-probe-dir commit -m x	set -a exports a plain assignment, and a rule for a bare SKIP= would refuse SKIP=... before any command | known gap
+#
+# --- export, declare -x and typeset -x: the name as a word, not a substring
+w-ex-hk-end	deny	deny	typeset HUSKY=0; export HUSKY; git commit -m x	set without -x, then export by name
+w-ex-hk-eq	deny	deny	export HUSKY=0; git commit -m x	export with a value
+w-ex-hk-sp	deny	deny	typeset HUSKY=0; export HUSKY PATH; git commit -m x	set without -x, then export with another name after it
+w-ex-hk-x-end	allow	allow	export HUSKY_DEBUG	a longer name
+w-ex-hk-x-eq	allow	allow	export HUSKY_DEBUG=1	a longer name, with a value
+w-ex-hk-x-sp	allow	allow	export HUSKY_DEBUG PATH	a longer name, another name after it
+w-ex-lb-end	deny	deny	typeset LEFTHOOK_BIN=true; export LEFTHOOK_BIN; git commit -m x	set without -x, then export by name
+w-ex-lb-eq	deny	deny	export LEFTHOOK_BIN=true; git commit -m x	export with a value
+w-ex-lb-sp	deny	deny	typeset LEFTHOOK_BIN=true; export LEFTHOOK_BIN PATH; git commit -m x	set without -x, then export with another name after it
+w-ex-lb-x-end	allow	allow	export LEFTHOOK_BIN_DIR	a longer name
+w-ex-lb-x-eq	allow	allow	export LEFTHOOK_BIN_DIR=1	a longer name, with a value
+w-ex-lb-x-sp	allow	allow	export LEFTHOOK_BIN_DIR PATH	a longer name, another name after it
+w-ex-lc-end	deny	deny	typeset LEFTHOOK_CONFIG=/dev/null; export LEFTHOOK_CONFIG; git commit -m x	set without -x, then export by name
+w-ex-lc-eq	deny	deny	export LEFTHOOK_CONFIG=/dev/null; git commit -m x	export with a value
+w-ex-lc-sp	deny	deny	typeset LEFTHOOK_CONFIG=/dev/null; export LEFTHOOK_CONFIG PATH; git commit -m x	set without -x, then export with another name after it
+w-ex-lc-x-end	allow	allow	export LEFTHOOK_CONFIG_DIR	a longer name
+w-ex-lc-x-eq	allow	allow	export LEFTHOOK_CONFIG_DIR=1	a longer name, with a value
+w-ex-lc-x-sp	allow	allow	export LEFTHOOK_CONFIG_DIR PATH	a longer name, another name after it
+w-ex-lx-end	deny	deny	typeset LEFTHOOK_EXCLUDE=gitleaks; export LEFTHOOK_EXCLUDE; git commit -m x	set without -x, then export by name
+w-ex-lx-eq	deny	deny	export LEFTHOOK_EXCLUDE=gitleaks; git commit -m x	export with a value
+w-ex-lx-sp	deny	deny	typeset LEFTHOOK_EXCLUDE=gitleaks; export LEFTHOOK_EXCLUDE PATH; git commit -m x	set without -x, then export with another name after it
+w-ex-lx-x-end	allow	allow	export LEFTHOOK_EXCLUDE_TAGS	a longer name
+w-ex-lx-x-eq	allow	allow	export LEFTHOOK_EXCLUDE_TAGS=1	a longer name, with a value
+w-ex-lx-x-sp	allow	allow	export LEFTHOOK_EXCLUDE_TAGS PATH	a longer name, another name after it
+w-dx-hk-end	deny	deny	typeset HUSKY=0; declare -x HUSKY; git commit -m x	set without -x, then declare -x by name
+w-dx-hk-eq	deny	deny	declare -x HUSKY=0; git commit -m x	declare -x with a value
+w-dx-hk-sp	deny	deny	typeset HUSKY=0; declare -x HUSKY PATH; git commit -m x	set without -x, then declare -x with another name after it
+w-dx-hk-x-end	allow	allow	declare -x HUSKY_DEBUG	a longer name
+w-dx-hk-x-eq	allow	allow	declare -x HUSKY_DEBUG=1	a longer name, with a value
+w-dx-hk-x-sp	allow	allow	declare -x HUSKY_DEBUG PATH	a longer name, another name after it
+w-dx-lb-end	deny	deny	typeset LEFTHOOK_BIN=true; declare -x LEFTHOOK_BIN; git commit -m x	set without -x, then declare -x by name
+w-dx-lb-eq	deny	deny	declare -x LEFTHOOK_BIN=true; git commit -m x	declare -x with a value
+w-dx-lb-sp	deny	deny	typeset LEFTHOOK_BIN=true; declare -x LEFTHOOK_BIN PATH; git commit -m x	set without -x, then declare -x with another name after it
+w-dx-lb-x-end	allow	allow	declare -x LEFTHOOK_BIN_DIR	a longer name
+w-dx-lb-x-eq	allow	allow	declare -x LEFTHOOK_BIN_DIR=1	a longer name, with a value
+w-dx-lb-x-sp	allow	allow	declare -x LEFTHOOK_BIN_DIR PATH	a longer name, another name after it
+w-dx-lc-end	deny	deny	typeset LEFTHOOK_CONFIG=/dev/null; declare -x LEFTHOOK_CONFIG; git commit -m x	set without -x, then declare -x by name
+w-dx-lc-eq	deny	deny	declare -x LEFTHOOK_CONFIG=/dev/null; git commit -m x	declare -x with a value
+w-dx-lc-sp	deny	deny	typeset LEFTHOOK_CONFIG=/dev/null; declare -x LEFTHOOK_CONFIG PATH; git commit -m x	set without -x, then declare -x with another name after it
+w-dx-lc-x-end	allow	allow	declare -x LEFTHOOK_CONFIG_DIR	a longer name
+w-dx-lc-x-eq	allow	allow	declare -x LEFTHOOK_CONFIG_DIR=1	a longer name, with a value
+w-dx-lc-x-sp	allow	allow	declare -x LEFTHOOK_CONFIG_DIR PATH	a longer name, another name after it
+w-dx-lx-end	deny	deny	typeset LEFTHOOK_EXCLUDE=gitleaks; declare -x LEFTHOOK_EXCLUDE; git commit -m x	set without -x, then declare -x by name
+w-dx-lx-eq	deny	deny	declare -x LEFTHOOK_EXCLUDE=gitleaks; git commit -m x	declare -x with a value
+w-dx-lx-sp	deny	deny	typeset LEFTHOOK_EXCLUDE=gitleaks; declare -x LEFTHOOK_EXCLUDE PATH; git commit -m x	set without -x, then declare -x with another name after it
+w-dx-lx-x-end	allow	allow	declare -x LEFTHOOK_EXCLUDE_TAGS	a longer name
+w-dx-lx-x-eq	allow	allow	declare -x LEFTHOOK_EXCLUDE_TAGS=1	a longer name, with a value
+w-dx-lx-x-sp	allow	allow	declare -x LEFTHOOK_EXCLUDE_TAGS PATH	a longer name, another name after it
+w-tx-hk-end	deny	deny	typeset HUSKY=0; typeset -x HUSKY; git commit -m x	set without -x, then typeset -x by name
+w-tx-hk-eq	deny	deny	typeset -x HUSKY=0; git commit -m x	typeset -x with a value
+w-tx-hk-sp	deny	deny	typeset HUSKY=0; typeset -x HUSKY PATH; git commit -m x	set without -x, then typeset -x with another name after it
+w-tx-hk-x-end	allow	allow	typeset -x HUSKY_DEBUG	a longer name
+w-tx-hk-x-eq	allow	allow	typeset -x HUSKY_DEBUG=1	a longer name, with a value
+w-tx-hk-x-sp	allow	allow	typeset -x HUSKY_DEBUG PATH	a longer name, another name after it
+w-tx-lb-end	deny	deny	typeset LEFTHOOK_BIN=true; typeset -x LEFTHOOK_BIN; git commit -m x	set without -x, then typeset -x by name
+w-tx-lb-eq	deny	deny	typeset -x LEFTHOOK_BIN=true; git commit -m x	typeset -x with a value
+w-tx-lb-sp	deny	deny	typeset LEFTHOOK_BIN=true; typeset -x LEFTHOOK_BIN PATH; git commit -m x	set without -x, then typeset -x with another name after it
+w-tx-lb-x-end	allow	allow	typeset -x LEFTHOOK_BIN_DIR	a longer name
+w-tx-lb-x-eq	allow	allow	typeset -x LEFTHOOK_BIN_DIR=1	a longer name, with a value
+w-tx-lb-x-sp	allow	allow	typeset -x LEFTHOOK_BIN_DIR PATH	a longer name, another name after it
+w-tx-lc-end	deny	deny	typeset LEFTHOOK_CONFIG=/dev/null; typeset -x LEFTHOOK_CONFIG; git commit -m x	set without -x, then typeset -x by name
+w-tx-lc-eq	deny	deny	typeset -x LEFTHOOK_CONFIG=/dev/null; git commit -m x	typeset -x with a value
+w-tx-lc-sp	deny	deny	typeset LEFTHOOK_CONFIG=/dev/null; typeset -x LEFTHOOK_CONFIG PATH; git commit -m x	set without -x, then typeset -x with another name after it
+w-tx-lc-x-end	allow	allow	typeset -x LEFTHOOK_CONFIG_DIR	a longer name
+w-tx-lc-x-eq	allow	allow	typeset -x LEFTHOOK_CONFIG_DIR=1	a longer name, with a value
+w-tx-lc-x-sp	allow	allow	typeset -x LEFTHOOK_CONFIG_DIR PATH	a longer name, another name after it
+w-tx-lx-end	deny	deny	typeset LEFTHOOK_EXCLUDE=gitleaks; typeset -x LEFTHOOK_EXCLUDE; git commit -m x	set without -x, then typeset -x by name
+w-tx-lx-eq	deny	deny	typeset -x LEFTHOOK_EXCLUDE=gitleaks; git commit -m x	typeset -x with a value
+w-tx-lx-sp	deny	deny	typeset LEFTHOOK_EXCLUDE=gitleaks; typeset -x LEFTHOOK_EXCLUDE PATH; git commit -m x	set without -x, then typeset -x with another name after it
+w-tx-lx-x-end	allow	allow	typeset -x LEFTHOOK_EXCLUDE_TAGS	a longer name
+w-tx-lx-x-eq	allow	allow	typeset -x LEFTHOOK_EXCLUDE_TAGS=1	a longer name, with a value
+w-tx-lx-x-sp	allow	allow	typeset -x LEFTHOOK_EXCLUDE_TAGS PATH	a longer name, another name after it
+w-ex-hk-params	allow	allow	export HUSKY_GIT_PARAMS="$*"	husky's own variable, a longer name
+w-ex-hk-note	allow	deny	export RELEASE_NOTE="bump HUSKY to 9"	a value naming HUSKY as a word | known gap
+w-ex-hk-sq	deny	allow	typeset HUSKY=0; export 'HUSKY'; git -C /nonexistent-consus-probe-dir commit -m x	the name quoted: followed by a quote, not a space or = | known gap
+#
+# --- git clone --config and -c: the key spelt out
+cl-sp-bare-camel	deny	deny	git clone --config core.hooksPath=/dev/null /nonexistent-consus-probe-dir/remote.git /nonexistent-consus-probe-dir/clone	--config core.hooksPath
+cl-sp-bare-lower	deny	deny	git clone --config core.hookspath=/dev/null /nonexistent-consus-probe-dir/remote.git /nonexistent-consus-probe-dir/clone	--config core.hookspath
+cl-sp-bare-other	allow	allow	git clone --config core.autocrlf=false /nonexistent-consus-probe-dir/webhooks.git /nonexistent-consus-probe-dir/path	another core key with --config, hooks and path only in the source and target
+cl-sp-sq-camel	deny	deny	git clone --config 'core.hooksPath=/dev/null' /nonexistent-consus-probe-dir/remote.git /nonexistent-consus-probe-dir/clone	--config core.hooksPath, the setting single-quoted
+cl-sp-sq-lower	deny	deny	git clone --config 'core.hookspath=/dev/null' /nonexistent-consus-probe-dir/remote.git /nonexistent-consus-probe-dir/clone	--config core.hookspath, the setting single-quoted
+cl-sp-sq-other	allow	allow	git clone --config 'core.autocrlf=false' /nonexistent-consus-probe-dir/webhooks.git /nonexistent-consus-probe-dir/path	another core key with --config, the setting single-quoted, hooks and path only in the source and target
+cl-sp-dq-camel	deny	deny	git clone --config "core.hooksPath=/dev/null" /nonexistent-consus-probe-dir/remote.git /nonexistent-consus-probe-dir/clone	--config core.hooksPath, the setting double-quoted
+cl-sp-dq-lower	deny	deny	git clone --config "core.hookspath=/dev/null" /nonexistent-consus-probe-dir/remote.git /nonexistent-consus-probe-dir/clone	--config core.hookspath, the setting double-quoted
+cl-sp-dq-other	allow	allow	git clone --config "core.autocrlf=false" /nonexistent-consus-probe-dir/webhooks.git /nonexistent-consus-probe-dir/path	another core key with --config, the setting double-quoted, hooks and path only in the source and target
+cl-eq-bare-camel	deny	deny	git clone --config=core.hooksPath=/dev/null /nonexistent-consus-probe-dir/remote.git /nonexistent-consus-probe-dir/clone	--config=core.hooksPath
+cl-eq-bare-lower	deny	deny	git clone --config=core.hookspath=/dev/null /nonexistent-consus-probe-dir/remote.git /nonexistent-consus-probe-dir/clone	--config=core.hookspath
+cl-eq-bare-other	allow	allow	git clone --config=core.autocrlf=false /nonexistent-consus-probe-dir/webhooks.git /nonexistent-consus-probe-dir/path	another core key with --config=, hooks and path only in the source and target
+cl-eq-sq-camel	deny	deny	git clone --config='core.hooksPath=/dev/null' /nonexistent-consus-probe-dir/remote.git /nonexistent-consus-probe-dir/clone	--config=core.hooksPath, the setting single-quoted
+cl-eq-sq-lower	deny	deny	git clone --config='core.hookspath=/dev/null' /nonexistent-consus-probe-dir/remote.git /nonexistent-consus-probe-dir/clone	--config=core.hookspath, the setting single-quoted
+cl-eq-sq-other	allow	allow	git clone --config='core.autocrlf=false' /nonexistent-consus-probe-dir/webhooks.git /nonexistent-consus-probe-dir/path	another core key with --config=, the setting single-quoted, hooks and path only in the source and target
+cl-eq-dq-camel	deny	deny	git clone --config="core.hooksPath=/dev/null" /nonexistent-consus-probe-dir/remote.git /nonexistent-consus-probe-dir/clone	--config=core.hooksPath, the setting double-quoted
+cl-eq-dq-lower	deny	deny	git clone --config="core.hookspath=/dev/null" /nonexistent-consus-probe-dir/remote.git /nonexistent-consus-probe-dir/clone	--config=core.hookspath, the setting double-quoted
+cl-eq-dq-other	allow	allow	git clone --config="core.autocrlf=false" /nonexistent-consus-probe-dir/webhooks.git /nonexistent-consus-probe-dir/path	another core key with --config=, the setting double-quoted, hooks and path only in the source and target
+cl-c-bare-camel	deny	deny	git clone -c core.hooksPath=/dev/null /nonexistent-consus-probe-dir/remote.git /nonexistent-consus-probe-dir/clone	-c core.hooksPath
+cl-c-bare-lower	deny	deny	git clone -c core.hookspath=/dev/null /nonexistent-consus-probe-dir/remote.git /nonexistent-consus-probe-dir/clone	-c core.hookspath
+cl-c-bare-other	allow	allow	git clone -c core.autocrlf=false /nonexistent-consus-probe-dir/webhooks.git /nonexistent-consus-probe-dir/path	another core key with -c, hooks and path only in the source and target
+cl-c-sq-camel	deny	deny	git clone -c 'core.hooksPath=/dev/null' /nonexistent-consus-probe-dir/remote.git /nonexistent-consus-probe-dir/clone	-c core.hooksPath, the setting single-quoted
+cl-c-sq-lower	deny	deny	git clone -c 'core.hookspath=/dev/null' /nonexistent-consus-probe-dir/remote.git /nonexistent-consus-probe-dir/clone	-c core.hookspath, the setting single-quoted
+cl-c-sq-other	allow	allow	git clone -c 'core.autocrlf=false' /nonexistent-consus-probe-dir/webhooks.git /nonexistent-consus-probe-dir/path	another core key with -c, the setting single-quoted, hooks and path only in the source and target
+cl-c-dq-camel	deny	deny	git clone -c "core.hooksPath=/dev/null" /nonexistent-consus-probe-dir/remote.git /nonexistent-consus-probe-dir/clone	-c core.hooksPath, the setting double-quoted
+cl-c-dq-lower	deny	deny	git clone -c "core.hookspath=/dev/null" /nonexistent-consus-probe-dir/remote.git /nonexistent-consus-probe-dir/clone	-c core.hookspath, the setting double-quoted
+cl-c-dq-other	allow	allow	git clone -c "core.autocrlf=false" /nonexistent-consus-probe-dir/webhooks.git /nonexistent-consus-probe-dir/path	another core key with -c, the setting double-quoted, hooks and path only in the source and target
+cl-C-sp-bare-camel	deny	deny	git -C /nonexistent-consus-probe-dir clone --config core.hooksPath=/dev/null /nonexistent-consus-probe-dir/remote.git /nonexistent-consus-probe-dir/clone	--config core.hooksPath, after git -C
+cl-C-sp-bare-lower	deny	deny	git -C /nonexistent-consus-probe-dir clone --config core.hookspath=/dev/null /nonexistent-consus-probe-dir/remote.git /nonexistent-consus-probe-dir/clone	--config core.hookspath, after git -C
+cl-C-sp-bare-other	allow	allow	git -C /nonexistent-consus-probe-dir clone --config core.autocrlf=false /nonexistent-consus-probe-dir/webhooks.git /nonexistent-consus-probe-dir/path	another core key with --config, after git -C, hooks and path only in the source and target
+cl-C-sp-sq-camel	deny	deny	git -C /nonexistent-consus-probe-dir clone --config 'core.hooksPath=/dev/null' /nonexistent-consus-probe-dir/remote.git /nonexistent-consus-probe-dir/clone	--config core.hooksPath, the setting single-quoted, after git -C
+cl-C-sp-sq-lower	deny	deny	git -C /nonexistent-consus-probe-dir clone --config 'core.hookspath=/dev/null' /nonexistent-consus-probe-dir/remote.git /nonexistent-consus-probe-dir/clone	--config core.hookspath, the setting single-quoted, after git -C
+cl-C-sp-sq-other	allow	allow	git -C /nonexistent-consus-probe-dir clone --config 'core.autocrlf=false' /nonexistent-consus-probe-dir/webhooks.git /nonexistent-consus-probe-dir/path	another core key with --config, the setting single-quoted, after git -C, hooks and path only in the source and target
+cl-C-sp-dq-camel	deny	deny	git -C /nonexistent-consus-probe-dir clone --config "core.hooksPath=/dev/null" /nonexistent-consus-probe-dir/remote.git /nonexistent-consus-probe-dir/clone	--config core.hooksPath, the setting double-quoted, after git -C
+cl-C-sp-dq-lower	deny	deny	git -C /nonexistent-consus-probe-dir clone --config "core.hookspath=/dev/null" /nonexistent-consus-probe-dir/remote.git /nonexistent-consus-probe-dir/clone	--config core.hookspath, the setting double-quoted, after git -C
+cl-C-sp-dq-other	allow	allow	git -C /nonexistent-consus-probe-dir clone --config "core.autocrlf=false" /nonexistent-consus-probe-dir/webhooks.git /nonexistent-consus-probe-dir/path	another core key with --config, the setting double-quoted, after git -C, hooks and path only in the source and target
+cl-C-eq-bare-camel	deny	deny	git -C /nonexistent-consus-probe-dir clone --config=core.hooksPath=/dev/null /nonexistent-consus-probe-dir/remote.git /nonexistent-consus-probe-dir/clone	--config=core.hooksPath, after git -C
+cl-C-eq-bare-lower	deny	deny	git -C /nonexistent-consus-probe-dir clone --config=core.hookspath=/dev/null /nonexistent-consus-probe-dir/remote.git /nonexistent-consus-probe-dir/clone	--config=core.hookspath, after git -C
+cl-C-eq-bare-other	allow	allow	git -C /nonexistent-consus-probe-dir clone --config=core.autocrlf=false /nonexistent-consus-probe-dir/webhooks.git /nonexistent-consus-probe-dir/path	another core key with --config=, after git -C, hooks and path only in the source and target
+cl-C-eq-sq-camel	deny	deny	git -C /nonexistent-consus-probe-dir clone --config='core.hooksPath=/dev/null' /nonexistent-consus-probe-dir/remote.git /nonexistent-consus-probe-dir/clone	--config=core.hooksPath, the setting single-quoted, after git -C
+cl-C-eq-sq-lower	deny	deny	git -C /nonexistent-consus-probe-dir clone --config='core.hookspath=/dev/null' /nonexistent-consus-probe-dir/remote.git /nonexistent-consus-probe-dir/clone	--config=core.hookspath, the setting single-quoted, after git -C
+cl-C-eq-sq-other	allow	allow	git -C /nonexistent-consus-probe-dir clone --config='core.autocrlf=false' /nonexistent-consus-probe-dir/webhooks.git /nonexistent-consus-probe-dir/path	another core key with --config=, the setting single-quoted, after git -C, hooks and path only in the source and target
+cl-C-eq-dq-camel	deny	deny	git -C /nonexistent-consus-probe-dir clone --config="core.hooksPath=/dev/null" /nonexistent-consus-probe-dir/remote.git /nonexistent-consus-probe-dir/clone	--config=core.hooksPath, the setting double-quoted, after git -C
+cl-C-eq-dq-lower	deny	deny	git -C /nonexistent-consus-probe-dir clone --config="core.hookspath=/dev/null" /nonexistent-consus-probe-dir/remote.git /nonexistent-consus-probe-dir/clone	--config=core.hookspath, the setting double-quoted, after git -C
+cl-C-eq-dq-other	allow	allow	git -C /nonexistent-consus-probe-dir clone --config="core.autocrlf=false" /nonexistent-consus-probe-dir/webhooks.git /nonexistent-consus-probe-dir/path	another core key with --config=, the setting double-quoted, after git -C, hooks and path only in the source and target
+cl-valueless	deny	deny	git clone --config core.hooksPath /nonexistent-consus-probe-dir/remote.git /nonexistent-consus-probe-dir/clone	with no value clone stores true, a hooks directory with no hooks in it
+cl-longer-key	allow	deny	git clone --config core.hooksPathX=/x /nonexistent-consus-probe-dir/remote.git /nonexistent-consus-probe-dir/clone	a different key that only starts like hooksPath | known gap
+cl-mixed	deny	allow	git clone --config core.HooksPath=/dev/null /nonexistent-consus-probe-dir/remote.git /nonexistent-consus-probe-dir/clone	git matches config names in any case | known gap
+cl-stuck	deny	allow	git clone -ccore.hooksPath=/dev/null /nonexistent-consus-probe-dir/remote.git /nonexistent-consus-probe-dir/clone	-c with its value stuck to it | known gap
+cl-cluster	deny	allow	git clone -qc core.hooksPath=/dev/null /nonexistent-consus-probe-dir/remote.git /nonexistent-consus-probe-dir/clone	-c clustered after -q | known gap
+cl-abbrev	deny	allow	git clone --conf core.hooksPath=/dev/null /nonexistent-consus-probe-dir/remote.git /nonexistent-consus-probe-dir/clone	clone takes the abbreviation --conf | known gap
+cl-gitc-other	allow	deny	git -c core.autocrlf=false clone /nonexistent-consus-probe-dir/webhooks.git /nonexistent-consus-probe-dir/path	another core key by git's own -c: git -c *core.*ooks*ath* reaches hooks and path in the source and target | known gap
+cl-C-c-other	allow	deny	git -C /nonexistent-consus-probe-dir clone -c core.autocrlf=false /nonexistent-consus-probe-dir/webhooks.git /nonexistent-consus-probe-dir/path	clone -c after git -C: git -* -c *core.*ooks*ath* reaches hooks and path in the source and target | known gap

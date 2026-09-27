@@ -45,9 +45,12 @@ or `pull` with the git hooks off, or that turns them off:
   or under `set -a`, is refused for `LEFTHOOK=0`, `LEFTHOOK=false`,
   `LEFTHOOK_BIN` and `HUSKY=0` only;
 - `HUSKY=0` before git or through `env`, and `HUSKY` by `export`,
-  `declare -x` or `typeset -x`, with a value or by name; `SKIP` before git;
+  `declare -x` or `typeset -x`, with a value or by name; `SKIP` before git.
+  The export rules want the name as a word, followed by `=`, a space or
+  nothing, so a longer name such as `HUSKY_DEBUG` runs;
 - `core.hooksPath` set by `git -c`, `--config-env`, `git config`,
-  `git clone -c` or `--config`, `GIT_CONFIG_KEY_<n>` or
+  `git clone -c`, `--config` or `--config=` (the key spelt `core.hooksPath`
+  or `core.hookspath`, quoted or not), `GIT_CONFIG_KEY_<n>` or
   `GIT_CONFIG_PARAMETERS`;
 - `lefthook uninstall`, bare, by path, or through `npx`, `yarn`, `pnpm`,
   `bunx` or `npm exec`;
@@ -74,16 +77,18 @@ So `git commit -m 'sort -n output'` and `git push -n` run.
 Known gaps. Getting through: a flag before a pathspec; a `commit`
 abbreviation or cluster that is not right after the subcommand; a late `-n`
 inside `rebase -x`, `submodule foreach` or an alias; `CORE.HOOKSPATH` in
-capitals; a flag after a redirection; a quoted subcommand or flag; a bypass
+capitals, and for `git clone` any other mixed case (`core.HooksPath`), a
+stuck or clustered `-c` (`-ccore.hooksPath=…`, `-qc`) or the abbreviation
+`--conf`; a flag after a redirection; a quoted subcommand or flag; a bypass
 variable among other assignments, or exported by `typeset -gx`, by any
 cluster other than a lone `-x`, or by `readonly -x`; `LEFTHOOK_EXCLUDE`,
 `LEFTHOOK_CONFIG` or `SKIP` set as a plain shell variable under `set -a`;
 `LEFTHOOK` set by `typeset`, `declare` or `local` without `-x`, then
-exported by name; `HUSKY` quoted through `env`; `SKIP` through `env` or
-`export`; inside a `rebase -x` or `submodule foreach` command, a bypass
-variable with a quoted value (`LEFTHOOK='0'`), and `LEFTHOOK_EXCLUDE`,
-`LEFTHOOK_CONFIG` or `SKIP` at all;
-`core.hooksPath` set in a config file that git reads, through
+exported by name; a name quoted in an export (`export 'HUSKY'`); `HUSKY`
+quoted through `env`; `SKIP` through `env` or `export`; inside a
+`rebase -x` or `submodule foreach` command, a bypass variable with a quoted
+value (`LEFTHOOK='0'`), and `LEFTHOOK_EXCLUDE`, `LEFTHOOK_CONFIG` or `SKIP`
+at all; `core.hooksPath` set in a config file that git reads, through
 `GIT_CONFIG_GLOBAL`, `GIT_CONFIG_SYSTEM` or `-c include.path=<file>`;
 `lefthook uninstall` through any other launcher, such as `mise exec` or
 `go tool`; the two forms after git's options above; and anything inside
@@ -94,16 +99,22 @@ a flag in one of those positions (`git commit -m -n`); after git's own
 options, a message or argument that holds a bypass anywhere, since the `*`
 after `git -` reaches into it (`git -C dir commit -m 'fix commit -n handling'`,
 `git -C dir log --grep commit -n 5`,
-`git -c core.pager=cat config --get core.hooksPath`) — no glob can stop at
-the subcommand; any `git config` text holding `commit` followed by `-n`,
-`-an`, `-qn`, `-sn` or `-vn`, or `--no-veri`, since the alias rules look
-anywhere after `git config`: a value pattern in
+`git -c core.pager=cat config --get core.hooksPath`,
+`git -c core.autocrlf=false clone …/webhooks.git ~/path`) — no glob can stop
+at the subcommand; a `git clone` key that only starts like `core.hooksPath`
+(`--config core.hooksPathX=…`): the rules stop at the key, not at an `=`,
+since `--config core.hooksPath` with no value stores `true`, a hooks
+directory that holds no hooks; any `git config` text holding `commit`
+followed by `-n`, `-an`, `-qn`, `-sn` or `-vn`, or `--no-veri`, since the
+alias rules look anywhere after `git config`: a value pattern in
 `git config --get-regexp '^alias[.]' 'commit -n'` or
 `git config --unset-all alias.ci 'commit -n'`; any text naming
 `GIT_CONFIG_KEY_*` or `GIT_CONFIG_PARAMETERS` with a hooks path; an
-`export`, `declare -x` or `typeset -x` that names `HUSKY`, `LEFTHOOK_BIN`,
+`export`, `declare -x` or `typeset -x` of `HUSKY`, `LEFTHOOK_BIN`,
 `LEFTHOOK_CONFIG` or `LEFTHOOK_EXCLUDE`, whatever the value
-(`export HUSKY=1`), and `LEFTHOOK_BIN=…` before any command
+(`export HUSKY=1`), or one whose text holds such a name before a space or
+`=` (`export RELEASE_NOTE="bump HUSKY to 9"`), a longer name that ends in
+one included; `LEFTHOOK_BIN=…` before any command
 (`LEFTHOOK_BIN=… lefthook run pre-commit`); any `git rebase` or
 `git submodule` text naming `LEFTHOOK=0`, `LEFTHOOK=false`, `LEFTHOOK_BIN=`
 or `HUSKY=0` (`git rebase -x 'LEFTHOOK=0 npm test' HEAD~1`); and a command
