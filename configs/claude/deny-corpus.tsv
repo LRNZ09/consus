@@ -418,6 +418,10 @@ al-late-n	deny	allow	git config alias.ci 'commit -a -n'	-n not right after commi
 al-C-hookspath	deny	allow	git -C <P> config alias.ci '-c core.hooksPath=/dev/null commit'	-c core.hooksPath inside an alias, after git -C | known gap
 al-log-n	allow	allow	git config alias.last 'log -n 1'	-n belongs to log
 al-plain	allow	allow	git config alias.ci 'commit -v'	an alias that keeps the hooks on
+al-get-regexp-n	allow	deny	git config --get-regexp '^alias[.]' 'commit -n'	lists the aliases that skip the hooks, but git config *commit -n* reaches the value pattern | known gap
+al-unset-all-n	allow	deny	git config --unset-all alias.ci 'commit -n'	removes such an alias by its value | known gap
+al-get-regexp-grep	allow	allow	git config --get-regexp '^alias[.]' | grep 'commit -n'	the way round it: filter the list with grep
+al-unset	allow	allow	git config --unset alias.ci	or remove the alias by its name
 #
 # --- git clone --config, and more clusters inside rebase -x and submodule foreach
 cl-config	deny	deny	git clone -q --config core.hooksPath=/dev/null ../probe-remote.git ../clone-long	--config, the long form of clone's -c
@@ -437,6 +441,7 @@ pc-skip-env	deny	allow	env SKIP=gitleaks git commit -m x	SKIP through env | know
 pc-skip-export	deny	allow	export SKIP=gitleaks && git commit -m x	SKIP by export | known gap
 lu-mise	deny	allow	mise exec -- lefthook uninstall	a launcher no rule names | known gap
 rb-C-nv-late	deny	allow	git -C <P> rebase -x 'git commit --amend --no-edit --no-verify' HEAD~1	after git -C, --no-verify inside rebase -x that is not first after commit | known gap
+rb-pull-nv	deny	allow	git rebase -x 'git pull --no-verify' HEAD~1	pull --no-verify inside rebase -x: the rules name commit, merge and push there, not pull | known gap
 sm-C-nv-late	deny	allow	git -C <P> submodule foreach 'git commit -m x --no-verify'	after git -C, --no-verify inside submodule foreach that is not first after commit | known gap
 sm-late-n	deny	allow	git submodule foreach 'git commit -m x -n'	-n inside submodule foreach, not right after commit and not last | known gap
 al-C-config-env	deny	allow	git -C <P> config alias.ci '--config-env=core.hooksPath=H commit'	after git -C, an alias whose value starts with --config-env | known gap
@@ -444,3 +449,6 @@ lx-set-a	deny	allow	set -a; LEFTHOOK_EXCLUDE=gitleaks; git push	set -a exports a
 lc-set-a	deny	allow	set -a; LEFTHOOK_CONFIG=/dev/null; git commit -m x	set -a exports a plain assignment | known gap
 ro-x	deny	allow	readonly -x LEFTHOOK=0; git commit -m x	readonly -x exports it too | known gap
 lh-typeset-name	deny	allow	typeset LEFTHOOK=0; export LEFTHOOK; git push	set by typeset without -x, then exported by name | known gap
+gc-global	deny	allow	GIT_CONFIG_GLOBAL=../hooks-off.cfg git commit -m x	a config file that sets core.hooksPath, read in place of the global one | known gap
+gc-system	deny	allow	GIT_CONFIG_SYSTEM=../hooks-off.cfg git push	the same file as the system config | known gap
+gc-include	deny	allow	git -c include.path=<P>/../hooks-off.cfg commit -m x	the same file included by -c | known gap
