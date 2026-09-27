@@ -55,10 +55,11 @@ or `pull` with the git hooks off, or that turns them off:
   (an alias), `git rebase -x` and `git submodule foreach`.
 
 Each form is refused after git's own options too — `git -C dir`,
-`-c key=value`, `--git-dir=…` — except two, refused only right after `git`: a
-`--no-verify` inside `rebase -x` or `submodule foreach` that is not the first
-flag after `commit`, and an alias whose value starts with `-c` or
-`--config-env`.
+`-c key=value`, `--git-dir=…` — a `pull` or `merge` `--no-verify` that ends
+a quoted `rebase -x` or `foreach` command among them. Two are the
+exceptions, refused only right after `git`: a `--no-verify` inside
+`rebase -x` or `submodule foreach` that is not the first flag after
+`commit`, and an alias whose value starts with `-c` or `--config-env`.
 
 The rules are position-aware. Claude Code matches each subcommand's text
 against a glob whose `*` is any text, quotes included, so no rule can tell a

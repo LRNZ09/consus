@@ -16,7 +16,7 @@
 # Nothing here ever runs. Every name, path and message is invented. The count
 # below is the number of rows, and the test checks it.
 #
-# cases: 442
+# cases: 454
 #
 # --- the six commands the eight old rules got wrong
 human-msg-sort-n	allow	allow	git commit -m 'sort -n output'	-n is message text, not a flag
@@ -505,3 +505,18 @@ lh-typeset-name	deny	allow	typeset LEFTHOOK=0; export LEFTHOOK; git push	set by 
 gc-global	deny	allow	GIT_CONFIG_GLOBAL=../hooks-off.cfg git commit -m x	a config file that sets core.hooksPath, read in place of the global one | known gap
 gc-system	deny	allow	GIT_CONFIG_SYSTEM=../hooks-off.cfg git push	the same file as the system config | known gap
 gc-include	deny	allow	git -c include.path=<P>/../hooks-off.cfg commit -m x	the same file included by -c | known gap
+#
+# --- pull and merge --no-verify last in a quoted rebase -x or foreach command,
+#     after git's own options
+q-C-rb-pull-sq	deny	deny	git -C /nonexistent-consus-probe-dir rebase -x 'git pull --no-verify' HEAD~1	after git -C, pull --no-verify ends a single-quoted rebase -x command
+q-C-rb-pull-dq	deny	deny	git -C /nonexistent-consus-probe-dir rebase -x "git pull --no-verify" HEAD~1	after git -C, pull --no-verify ends a double-quoted rebase -x command
+q-C-sm-pull-sq	deny	deny	git -C /nonexistent-consus-probe-dir submodule foreach 'git pull --no-verify'	after git -C, pull --no-verify ends a single-quoted foreach command
+q-C-sm-pull-dq	deny	deny	git -C /nonexistent-consus-probe-dir submodule foreach "git pull --no-verify"	after git -C, pull --no-verify ends a double-quoted foreach command
+q-C-rb-merge-sq	deny	deny	git -C /nonexistent-consus-probe-dir rebase -x 'git merge --no-verify' HEAD~1	after git -C, merge --no-verify ends a single-quoted rebase -x command
+q-c-rb-merge-dq	deny	deny	git -c color.ui=never rebase -x "git merge --no-verify" HEAD~1	after git -c, merge --no-verify ends a double-quoted rebase -x command
+q-C-sm-merge-sq	deny	deny	git -C /nonexistent-consus-probe-dir submodule foreach 'git merge --no-verify'	after git -C, merge --no-verify ends a single-quoted foreach command
+q-C-sm-merge-dq	deny	deny	git -C /nonexistent-consus-probe-dir submodule foreach "git merge --no-verify"	after git -C, merge --no-verify ends a double-quoted foreach command
+q-C-rb-pull-sigs	allow	allow	git -C /nonexistent-consus-probe-dir rebase -x 'git pull --no-verify-signatures' HEAD~1	a longer pull flag, not the hooks switch
+q-C-sm-pull-ff	allow	allow	git -C /nonexistent-consus-probe-dir submodule foreach "git pull --ff-only"	a pull that keeps the hooks on
+q-c-rb-merge-sigs	allow	allow	git -c color.ui=never rebase -x 'git merge --no-verify-signatures' HEAD~1	a longer merge flag, not the hooks switch
+q-C-sm-merge-ff	allow	allow	git -C /nonexistent-consus-probe-dir submodule foreach "git merge --ff-only"	a merge that keeps the hooks on

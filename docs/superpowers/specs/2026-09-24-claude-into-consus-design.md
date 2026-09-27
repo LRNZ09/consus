@@ -291,7 +291,7 @@ ways around the hooks. Until 2026-09-25 that was eight rules in the
 through `Bash(git commit * -n*)` and `Bash(git commit * --no-verify*)`, while
 `git -C dir commit --no-verify`, `env LEFTHOOK=0 git push`,
 `git -c core.hooksPath=/dev/null commit` and `git merge --no-verify topic` all
-got past them. Now 143 rules refuse a `commit`, `push`, `merge` or `pull` run
+got past them. Now 147 rules refuse a `commit`, `push`, `merge` or `pull` run
 with the hooks off, and each way of turning them off that a rule can see:
 
 - `--no-verify`, and for `commit` and `push` the abbreviations `--no-veri`
@@ -331,6 +331,13 @@ And `git clone` takes `--config` as well as `-c`. Twenty-four new rules
 closed them, and eleven that the new ones cover were dropped. The gaps it
 found that no rule closes are in the lists below.
 
+Their third review, on 2026-09-27, found `pull` and `merge` with
+`--no-verify` last inside a quoted `rebase -x` or `foreach` command still
+running after `git -C` or `-c`: `git -* pull *--no-verify` wants the flag at
+the very end of the line, and `git -* pull *--no-verify *` a space after it.
+Four new rules, the flag followed by a single or a double quote after
+`git -* pull` and `git -* merge`, closed it.
+
 A rule cannot parse, so each one is written for a position. Claude Code
 matches it against the whole text of each subcommand, its `*` is any text,
 spaces and quotes included, and a quote means nothing to it ("Measured
@@ -347,11 +354,12 @@ same forms are repeated under `git config *` for an alias, `git rebase *` for
 start with a quote, so under `git config *` the flag is looked for anywhere:
 `--no-veri`, `-c core.hooksPath`, `--config-env`, and `commit` followed by
 `-n`, `-an`, `-qn`, `-sn` or `-vn`. After git's own options, too, each form
-is refused, except two that are refused only right after `git`: a
-`--no-verify` inside `rebase -x` or `submodule foreach` that is not the first
-flag after `commit`, and an alias whose value starts with `-c` or
-`--config-env`. `merge` and `pull` need the whole `--no-verify`, the only
-form `merge` takes, so `git merge --no-verify-signatures` runs.
+is refused, a `pull` or `merge` `--no-verify` that ends a quoted `rebase -x`
+or `foreach` command among them, except two that are refused only right
+after `git`: a `--no-verify` inside `rebase -x` or `submodule foreach` that
+is not the first flag after `commit`, and an alias whose value starts with
+`-c` or `--config-env`. `merge` and `pull` need the whole `--no-verify`, the
+only form `merge` takes, so `git merge --no-verify-signatures` runs.
 
 Where no rule gets it right, each case errs in the direction chosen for it,
 or has no rule yet:
@@ -768,17 +776,32 @@ The same way, against the same versions.
   double quote or a space. Probed live, all three forms were refused, and
   `git rebase -x 'git pull --no-verify-signatures' HEAD~1` and
   `git rebase -x 'git log -n 1' HEAD~1` ran.
-- The corpus now holds 442 commands. The 162 deny rules, 143 against a
-  hooks-off run and the 19 older ones, get 367 right; the 75 they get wrong
+- After the second review the corpus held 442 commands. The 162 deny rules,
+  143 against a hooks-off run and the 19 older ones, got 367 right; the 75
+  they got wrong were 37 bypasses let through and 38 harmless commands
+  refused, the same 2 of those by the older rules. Each of the 93 probes run
+  on rows after that change, 75 of them on new rows, came out as the replica
+  predicted, and so did 54 more: a refused and a harmless form for each rule
+  the change added, a refused one for five it dropped, and
+  `LEFTHOOK_EXCLUDE=gitleaks lefthook version`, which ran.
+  With the eight rules the first change replaced, the replica got 243
+  wrong. Each of the 143 was the only rule that refused some row.
+- The third review, on 2026-09-27, found
+  `git -C /nonexistent-consus-probe-dir rebase -x 'git pull --no-verify' HEAD~1`
+  running, and the same with `submodule foreach` and with `merge`: git
+  stopped at the missing directory. The four rules added for it were probed
+  live the same way, with a directory that does not exist or an upstream,
+  `HEAD~1`, that the scratch repository lacks, so that nothing a probe let
+  through could run: pull and merge `--no-verify` ending a single- or
+  double-quoted `rebase -x` or `foreach` command after `git -C` or `-c`,
+  eight forms, were refused, and four with `--no-verify-signatures` or
+  `--ff-only` ran.
+- The corpus now holds 454 commands. The 166 deny rules, 147 against a
+  hooks-off run and the 19 older ones, get 379 right; the 75 they get wrong
   are the gaps listed in "Private values": 37 bypasses let through and 38
   harmless commands refused, the same 2 of those by the older rules. Each of
-  the 93 probes run on rows after this change, 75 of them on new rows, came
-  out as the replica predicted, and so did 54 more: a refused and a harmless
-  form for each rule the change added, a refused one for five it dropped, and
-  `LEFTHOOK_EXCLUDE=gitleaks lefthook version`, which ran.
-  With the eight rules the first change replaced, the replica gets 243
-  wrong. Each of the 143 is the only rule that refuses some row, so deleting
-  any one of them fails the test.
+  the 147 is the only rule that refuses some row, so deleting any one of them
+  fails the test.
 
 ### From the documentation, checked 2026-09-24
 
