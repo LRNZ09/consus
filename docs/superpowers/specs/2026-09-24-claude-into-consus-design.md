@@ -258,6 +258,7 @@ This is dotclaude's mechanism, moved:
   its value as a glob, so `--remotes=*` leaves out what every remote's
   tracking refs hold. A remote name can hold either when `git config`, not
   `git remote add`, made it. Such a push scans each commit's whole history.
+  `bin/placeholders check-push` decides the same way, for the same glob.
 - **The map** stays untracked at `~/.claude/placeholders.tsv`.
 
 The guards now cover all of consus, not only `settings.json`. Measured before
@@ -715,8 +716,11 @@ changed nothing outside it.
   `gitleaks.sh` run on its own with each of those as `$1` left the commit
   out and passed, since `--remotes=` reads a glob and a backslash escapes
   (on 2026-09-27); so a `$1` holding `*`, `?`, `[`, `]` or a backslash is
-  scanned whole too. `git config --remove-section` cannot remove a section
-  named with a bracket; `git config --unset` of its last key does.
+  scanned whole too. `bin/placeholders check-push` had the same hole: with
+  the same setup and a commit naming a guarded term, a push to `*`, `u*` or
+  `u[p]*` passed. It now scans such a push whole as well, and refuses it.
+  `git config --remove-section` cannot remove a section named with a
+  bracket; `git config --unset` of its last key does.
 - Under `log.showRoot=false`, `git log -p` shows no diff for a root commit;
   `--root` brings it back.
 - jq prints a map-row `error()` as

@@ -156,6 +156,16 @@ case ${1:-} in
 	check-push)
 		[ -n "${2:-}" ] || usage "check-push REMOTE"
 		remote=$2
+		# What the remote already holds is left out only when $2 is one of this
+		# clone's remotes and plain: --remotes=<name> is a pattern, so a remote
+		# git config named * (or u*, u[p]*) would leave out every remote's refs,
+		# a private remote's included. Otherwise, as for a URL, the whole history
+		# of each pushed ref is scanned. Mirrors .lefthook/pre-push/gitleaks.sh.
+		not=--not
+		case $remote in
+		*[[:space:]]* | *[][*?\\]*) not= ;;
+		*) git remote | grep -qxF -- "$remote" || not= ;;
+		esac
 		# A deletion publishes nothing, so it is skipped: refusing it would keep
 		# a leaked branch name on the remote. --root shows a root commit's diff,
 		# which log.showRoot=false would hide on a push to an empty remote.
@@ -163,8 +173,10 @@ case ${1:-} in
 			[ "$sha" = 0000000000000000000000000000000000000000 ] && continue
 			{ printf '%s\n' "$lref" "$rref"
 				tag_chain "$sha" || exit 1
-				git log --format=%B "$sha" --not --remotes="$remote"
-				git log -p --root --no-color --no-ext-diff --no-textconv -U0 --no-renames --text --diff-merges=first-parent --format= "$sha" --not --remotes="$remote" | added_lines
+				# Unquoted on purpose: two words or none; $remote holds no space or
+				# glob character when $not is set.
+				git log --format=%B "$sha" ${not:+--not --remotes="$remote"}
+				git log -p --root --no-color --no-ext-diff --no-textconv -U0 --no-renames --text --diff-merges=first-parent --format= "$sha" ${not:+--not --remotes="$remote"} | added_lines
 			} | check || exit 1
 		done
 		;;
