@@ -251,10 +251,11 @@ This is dotclaude's mechanism, moved:
   user config cannot hide a line from it either. It refuses a ref that is not
   a commit or a tag of one, because gitleaks passes whatever its `git log`
   cannot read. For the same reason it leaves out the commits the
-  remote-tracking refs hold only when `$1` names one of the clone's remotes: on
-  a push to a URL or path, `$1` is that URL or path, and one with a space in
-  it split gitleaks' `--log-opts`. Such a push scans each commit's whole
-  history.
+  remote-tracking refs hold only when `$1` names one of the clone's remotes
+  and holds no whitespace: on a push to a URL or path, `$1` is that URL or
+  path, and one with a space in it split gitleaks' `--log-opts`; a remote
+  name can hold one too when `git config`, not `git remote add`, made it.
+  Such a push scans each commit's whole history.
 - **The map** stays untracked at `~/.claude/placeholders.tsv`.
 
 The guards now cover all of consus, not only `settings.json`. Measured before
@@ -616,7 +617,9 @@ changed nothing outside it.
   It splits `--log-opts` at spaces and takes a quote as a plain character. So
   `gitleaks.sh`, run on its own with a path holding a space as `$1`, passed a
   real finding the same way; with a remote named `it's` or `q"x` it found it.
-  git refuses a remote name with a space in it.
+  `git remote add` refuses a name with a space in it, but `git config` can
+  make one (`remote.bk up.url`), which `git push 'bk up'` then uses; so any
+  `$1` holding whitespace is scanned whole.
 - Under `log.showRoot=false`, `git log -p` shows no diff for a root commit;
   `--root` brings it back.
 - jq prints a map-row `error()` as

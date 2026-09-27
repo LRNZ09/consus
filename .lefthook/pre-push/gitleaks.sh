@@ -15,12 +15,15 @@
 # the URL or path itself, and one with a space in it made that git log fail:
 # measured by running this script on its own, since lefthook 2.1.14 splits its
 # arguments at spaces first. So the commits the remote-tracking refs hold are
-# left out only when $1 names one of this clone's remotes, which cannot hold a
-# space; any other push scans each commit's whole history.
+# left out only when $1 names one of this clone's remotes and holds no
+# whitespace; any other push scans each commit's whole history. git remote add
+# refuses a name with a space, but git config can make one, and grep -x would
+# read a newline in $1 as two names.
 not=
-if git remote | command grep -qxF -- "$1"; then
-	not=" --not --remotes=$1"
-fi
+case $1 in
+'' | *[[:space:]]*) ;;
+*) if git remote | command grep -qxF -- "$1"; then not=" --not --remotes=$1"; fi ;;
+esac
 while read -r _ sha _ _; do
 	# A deletion publishes nothing.
 	case $sha in *[!0]*) ;; *) continue ;; esac
