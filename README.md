@@ -153,7 +153,8 @@ after the subcommand, last, or before another option — and a message such as
 `git commit -m 'sort -n output'` still runs. They stop an agent retrying the
 obvious way, not a determined one: `bash -c`, `eval`, a script or an alias is
 out of their reach. `configs/claude/README.md` says what they catch and what
-they miss, and `bin/test-deny-rules` checks them against live measurements.
+they miss. `bin/test-deny-rules` checks them against commands probed live,
+and each of them must be the only rule that refuses one of those commands.
 
 ## Why any of this
 
