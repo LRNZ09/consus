@@ -630,7 +630,9 @@ done
 ((bad)) && exit 64
 if [ -z "$declared" ]; then
 	echo "the corpus header has no '# cases: N' line" >&2; exit 65
-elif [ "$declared" -ne "$rows" ]; then
+# As text: -ne errors on a count too large for an integer, and elif reads the
+# error as false. The pattern above rules out leading zeros.
+elif [ "$declared" != "$rows" ]; then
 	echo "the corpus header says $declared cases, but the corpus holds $rows" >&2; exit 65
 fi
 ((PREDICT)) && exit 0
