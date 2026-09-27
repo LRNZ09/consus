@@ -16,7 +16,7 @@
 # Nothing here ever runs. Every name, path and message is invented. The count
 # below is the number of rows, and the test checks it.
 #
-# cases: 454
+# cases: 493
 #
 # --- the six commands the eight old rules got wrong
 human-msg-sort-n	allow	allow	git commit -m 'sort -n output'	-n is message text, not a flag
@@ -520,3 +520,44 @@ q-C-rb-pull-sigs	allow	allow	git -C /nonexistent-consus-probe-dir rebase -x 'git
 q-C-sm-pull-ff	allow	allow	git -C /nonexistent-consus-probe-dir submodule foreach "git pull --ff-only"	a pull that keeps the hooks on
 q-c-rb-merge-sigs	allow	allow	git -c color.ui=never rebase -x 'git merge --no-verify-signatures' HEAD~1	a longer merge flag, not the hooks switch
 q-C-sm-merge-ff	allow	allow	git -C /nonexistent-consus-probe-dir submodule foreach "git merge --ff-only"	a merge that keeps the hooks on
+#
+# --- bypass variables inside a rebase -x or submodule foreach command
+rbv-lh0	deny	deny	git rebase -x 'LEFTHOOK=0 git commit --amend --no-edit' HEAD~1	LEFTHOOK=0 inside rebase -x
+rbv-lh0-export	deny	deny	git rebase -x 'export LEFTHOOK=0; git commit --amend --no-edit' HEAD~1	LEFTHOOK=0 exported inside rebase -x
+rbv-lhf	deny	deny	git rebase -x "LEFTHOOK=false git commit --amend --no-edit" HEAD~1	LEFTHOOK=false inside a double-quoted rebase -x command
+rbv-lb	deny	deny	git rebase -x 'LEFTHOOK_BIN=true git commit --amend --no-edit' HEAD~1	LEFTHOOK_BIN inside rebase -x
+rbv-hk	deny	deny	git rebase -x 'HUSKY=0 git commit --amend --no-edit' HEAD~1	HUSKY=0 inside rebase -x
+smv-lh0	deny	deny	git submodule foreach 'LEFTHOOK=0 git commit -m wip'	LEFTHOOK=0 inside submodule foreach
+smv-lhf	deny	deny	git submodule foreach LEFTHOOK=false git commit -am wip	LEFTHOOK=false inside an unquoted foreach command
+smv-lb	deny	deny	git submodule foreach 'LEFTHOOK_BIN=true git push'	LEFTHOOK_BIN inside submodule foreach
+smv-hk	deny	deny	git submodule foreach 'HUSKY=0 git commit -m wip'	HUSKY=0 inside submodule foreach
+rbvC-lh0	deny	deny	git -C /nonexistent-consus-probe-dir rebase -x 'LEFTHOOK=0 git commit --amend --no-edit' HEAD~1	LEFTHOOK=0 inside rebase -x, after git -C
+rbvC-lhf	deny	deny	git -c color.ui=never rebase -x 'LEFTHOOK=false git commit --amend --no-edit' HEAD~1	LEFTHOOK=false inside rebase -x, after git -c
+rbvC-lb	deny	deny	git -C /nonexistent-consus-probe-dir rebase -x "LEFTHOOK_BIN=true git commit --amend --no-edit" HEAD~1	LEFTHOOK_BIN inside rebase -x, after git -C
+rbvC-hk	deny	deny	git -C /nonexistent-consus-probe-dir rebase -x 'HUSKY=0 git commit --amend --no-edit' HEAD~1	HUSKY=0 inside rebase -x, after git -C
+smvC-lh0	deny	deny	git -C /nonexistent-consus-probe-dir submodule foreach 'LEFTHOOK=0 git commit -m wip'	LEFTHOOK=0 inside submodule foreach, after git -C
+smvC-lhf	deny	deny	git -C /nonexistent-consus-probe-dir submodule foreach "LEFTHOOK=false git push"	LEFTHOOK=false inside submodule foreach, after git -C
+smvC-lb	deny	deny	git -C /nonexistent-consus-probe-dir submodule foreach 'LEFTHOOK_BIN=true git commit -m wip'	LEFTHOOK_BIN inside submodule foreach, after git -C
+smvC-hk	deny	deny	git -C /nonexistent-consus-probe-dir submodule foreach 'HUSKY=0 git commit -m wip'	HUSKY=0 inside submodule foreach, after git -C
+rbv-lh1	allow	allow	git rebase -x 'LEFTHOOK=1 git commit --amend --no-edit' HEAD~1	LEFTHOOK=1 keeps the hooks on
+rbv-lht	allow	allow	git rebase -x 'LEFTHOOK=true git commit --amend --no-edit' HEAD~1	LEFTHOOK=true keeps the hooks on
+rbv-lb-echo	allow	allow	git rebase -x 'echo "$LEFTHOOK_BIN"' HEAD~1	only prints LEFTHOOK_BIN
+rbv-hk1	allow	allow	git rebase -x 'HUSKY=1 git commit --amend --no-edit' HEAD~1	HUSKY=1 keeps the hooks on
+smv-lh1	allow	allow	git submodule foreach 'LEFTHOOK=1 git commit -m wip'	LEFTHOOK=1 keeps the hooks on
+smv-lht	allow	allow	git submodule foreach 'LEFTHOOK=true git push'	LEFTHOOK=true keeps the hooks on
+smv-lb-echo	allow	allow	git submodule foreach 'echo "$LEFTHOOK_BIN"'	only prints LEFTHOOK_BIN
+smv-hk1	allow	allow	git submodule foreach 'HUSKY=1 git commit -m wip'	HUSKY=1 keeps the hooks on
+rbvC-lh1	allow	allow	git -C /nonexistent-consus-probe-dir rebase -x 'LEFTHOOK=1 git commit --amend --no-edit' HEAD~1	LEFTHOOK=1, after git -C
+rbvC-lht	allow	allow	git -c color.ui=never rebase -x 'LEFTHOOK=true git commit --amend --no-edit' HEAD~1	LEFTHOOK=true, after git -c
+rbvC-lb-echo	allow	allow	git -C /nonexistent-consus-probe-dir rebase -x 'echo "$LEFTHOOK_BIN"' HEAD~1	only prints LEFTHOOK_BIN, after git -C
+rbvC-hk1	allow	allow	git -C /nonexistent-consus-probe-dir rebase -x 'HUSKY=1 git commit --amend --no-edit' HEAD~1	HUSKY=1, after git -C
+smvC-lh1	allow	allow	git -C /nonexistent-consus-probe-dir submodule foreach 'LEFTHOOK=1 git commit -m wip'	LEFTHOOK=1, after git -C
+smvC-lht	allow	allow	git -C /nonexistent-consus-probe-dir submodule foreach "LEFTHOOK=true git push"	LEFTHOOK=true, after git -C
+smvC-lb-echo	allow	allow	git -C /nonexistent-consus-probe-dir submodule foreach 'echo "$LEFTHOOK_BIN"'	only prints LEFTHOOK_BIN, after git -C
+smvC-hk1	allow	allow	git -C /nonexistent-consus-probe-dir submodule foreach 'HUSKY=1 git commit -m wip'	HUSKY=1, after git -C
+rbv-lh0-test	allow	deny	git rebase -x 'LEFTHOOK=0 npm test' HEAD~1	npm test commits nothing, but the rule refuses any rebase text naming LEFTHOOK=0 | known gap
+rbv-lh-sq	deny	allow	git rebase -x "LEFTHOOK='0' git commit --amend --no-edit" HEAD~1	a quoted value inside rebase -x | known gap
+rbv-lx	deny	allow	git rebase -x 'LEFTHOOK_EXCLUDE=gitleaks git commit --amend --no-edit' HEAD~1	LEFTHOOK_EXCLUDE inside rebase -x: no rule names it there | known gap
+smv-lc	deny	allow	git submodule foreach 'LEFTHOOK_CONFIG=/dev/null git commit -m wip'	LEFTHOOK_CONFIG inside submodule foreach: no rule names it there | known gap
+smv-skip	deny	allow	git submodule foreach 'SKIP=gitleaks git commit -m wip'	SKIP inside submodule foreach: no rule names it there | known gap
+pc-skip-set-a	deny	allow	set -a; SKIP=gitleaks; git -C /nonexistent-consus-probe-dir commit -m x	set -a exports a plain assignment, and a rule for a bare SKIP= would refuse SKIP=... before any command | known gap

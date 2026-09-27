@@ -52,7 +52,9 @@ or `pull` with the git hooks off, or that turns them off:
 - `lefthook uninstall`, bare, by path, or through `npx`, `yarn`, `pnpm`,
   `bunx` or `npm exec`;
 - the same flags inside the commands git runs for you: a `git config` value
-  (an alias), `git rebase -x` and `git submodule foreach`.
+  (an alias), `git rebase -x` and `git submodule foreach`; and in the last
+  two, `LEFTHOOK=0`, `LEFTHOOK=false`, `LEFTHOOK_BIN` and `HUSKY=0` set in
+  the command.
 
 Each form is refused after git's own options too — `git -C dir`,
 `-c key=value`, `--git-dir=…` — a `pull` or `merge` `--no-verify` that ends
@@ -74,10 +76,13 @@ abbreviation or cluster that is not right after the subcommand; a late `-n`
 inside `rebase -x`, `submodule foreach` or an alias; `CORE.HOOKSPATH` in
 capitals; a flag after a redirection; a quoted subcommand or flag; a bypass
 variable among other assignments, or exported by `typeset -gx`, by any
-cluster other than a lone `-x`, or by `readonly -x`; `LEFTHOOK_EXCLUDE` or
-`LEFTHOOK_CONFIG` set as a plain shell variable under `set -a`; `LEFTHOOK`
-set by `typeset`, `declare` or `local` without `-x`, then exported by name;
-`HUSKY` quoted through `env`; `SKIP` through `env` or `export`;
+cluster other than a lone `-x`, or by `readonly -x`; `LEFTHOOK_EXCLUDE`,
+`LEFTHOOK_CONFIG` or `SKIP` set as a plain shell variable under `set -a`;
+`LEFTHOOK` set by `typeset`, `declare` or `local` without `-x`, then
+exported by name; `HUSKY` quoted through `env`; `SKIP` through `env` or
+`export`; inside a `rebase -x` or `submodule foreach` command, a bypass
+variable with a quoted value (`LEFTHOOK='0'`), and `LEFTHOOK_EXCLUDE`,
+`LEFTHOOK_CONFIG` or `SKIP` at all;
 `core.hooksPath` set in a config file that git reads, through
 `GIT_CONFIG_GLOBAL`, `GIT_CONFIG_SYSTEM` or `-c include.path=<file>`;
 `lefthook uninstall` through any other launcher, such as `mise exec` or
@@ -99,8 +104,11 @@ anywhere after `git config`: a value pattern in
 `export`, `declare -x` or `typeset -x` that names `HUSKY`, `LEFTHOOK_BIN`,
 `LEFTHOOK_CONFIG` or `LEFTHOOK_EXCLUDE`, whatever the value
 (`export HUSKY=1`), and `LEFTHOOK_BIN=…` before any command
-(`LEFTHOOK_BIN=… lefthook run pre-commit`); and a command git runs no hook
-for under a bypass setting (`LEFTHOOK=0 git status`, `HUSKY=0 git status`).
+(`LEFTHOOK_BIN=… lefthook run pre-commit`); any `git rebase` or
+`git submodule` text naming `LEFTHOOK=0`, `LEFTHOOK=false`, `LEFTHOOK_BIN=`
+or `HUSKY=0` (`git rebase -x 'LEFTHOOK=0 npm test' HEAD~1`); and a command
+git runs no hook for under a bypass setting (`LEFTHOOK=0 git status`,
+`HUSKY=0 git status`).
 When a message has to name a bypass, commit it with `-F <file>`; search for
 one without `git -C` or `-c`; find an alias with
 `git config --get-regexp '^alias[.]' | grep 'commit -n'`, and remove it by
