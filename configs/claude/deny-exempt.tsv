@@ -1,0 +1,30 @@
+# deny-exempt.tsv: the Bash deny rules bin/test-deny-rules does not require
+# to be the only rule that refuses some row of deny-corpus.tsv, one per line:
+#
+#   rule<TAB>kind<TAB>why
+#
+# kind is redundant for a rule every command it refuses is refused by another
+# rule too, as the replica reads them; some row must still reach it, and the
+# why names the rule that covers it. kind is older for a rule against
+# destructive commands, which the corpus does not target. Every rule listed
+# here must be in settings.json.
+#
+Bash(git branch --delete --force*)	older	deletes a branch, merged or not
+Bash(git branch -D*)	older	deletes a branch, merged or not
+Bash(git checkout * .)	older	discards changes in the working tree
+Bash(git checkout --force*)	older	discards changes in the working tree
+Bash(git checkout -f*)	older	discards changes in the working tree
+Bash(git checkout .)	older	discards changes in the working tree
+Bash(git clean *f*)	older	deletes untracked files
+Bash(git push * +*)	older	force-pushes, rewriting the remote history
+Bash(git push * --force *)	older	force-pushes, rewriting the remote history
+Bash(git push * --force)	older	force-pushes, rewriting the remote history
+Bash(git push * -f*)	older	force-pushes, rewriting the remote history
+Bash(git push --force *)	older	force-pushes, rewriting the remote history
+Bash(git push -f*)	older	force-pushes, rewriting the remote history
+Bash(git reset * --hard*)	older	discards changes in the index and working tree
+Bash(git reset --hard*)	older	discards changes in the index and working tree
+Bash(git restore * .)	older	discards changes in the working tree
+Bash(git restore .)	older	discards changes in the working tree
+Bash(git stash clear*)	older	deletes stashed changes
+Bash(git stash drop*)	older	deletes stashed changes

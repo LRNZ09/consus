@@ -5,11 +5,20 @@
 # rules".
 #
 # Each corpus row holds a command, its right answer and the answer Claude
-# Code's own matcher gave when the command was probed live. The test passes
-# when the replica predicts the measured answer for every row: a change to the
-# rules that moves any verdict fails it until the row is probed again and its
-# measured answer updated. The rows whose measured answer is not the right one
-# are the known gaps; they are counted, never failed.
+# Code's own matcher gave when the command was last probed live. The test
+# passes when the replica predicts the measured answer for every row: a change
+# to the rules that moves any verdict fails it until the row is probed again
+# and its measured answer updated. The rows whose measured answer is not the
+# right one are the known gaps; they are counted, never failed.
+#
+# A full run also checks that the corpus holds every rule: each Bash deny rule
+# must be the only rule that refuses some row, so that deleting it moves that
+# row's verdict and fails the test. deny-exempt.tsv, next to the corpus, lists
+# the exceptions, each with its reason: a redundant rule, which some row must
+# still reach, and an older rule against destructive commands, which the
+# corpus does not target. A listed rule missing from the rules fails the run
+# too, so deleting one of those is caught as well. And the corpus header's
+# "# cases: N" must be the number of rows the corpus holds.
 #
 # Nothing in the corpus ever runs. zsh's ${(z)} lexer splits each command
 # (lexing only: no expansion), a small scanner finds the bodies of $( ), ` `,
@@ -18,7 +27,7 @@
 # zsh and jq; no network.
 #
 # Usage: bin/test-deny-rules [--settings FILE] [--probe DIR] [--predict]
-#                            [--gaps] [-v] [ID...]
+#                            [--gaps] [--rules] [-v] [ID...]
 #   --settings FILE  the rules: permissions.deny in FILE; by default this
 #                    clone's configs/claude/settings.json, which
 #                    ~/.claude/settings.json links to. Nothing else in the
@@ -27,9 +36,14 @@
 #   --predict        print id<TAB>deny|allow, the replica's answer, for every
 #                    row, and no verdicts
 #   --gaps           list the known gaps too
+#   --rules          list every rule, with how many rows it refuses and the
+#                    rows no other rule refuses
 #   -v               list every row, with the texts the rules are matched to
-# Exit 0 when every prediction is the measured answer, 1 when one is not, 65
-# for a malformed corpus row.
+#   ID...            replay only these rows, with no coverage check
+# Exit 0 when every prediction is the measured answer and every rule is
+# covered; 1 when a prediction is not the measured answer, a rule is not
+# covered, or no row was replayed; 64 for a bad argument or an ID no row has;
+# 65 for a malformed corpus or exemption line, or a wrong case count.
 #
 # The replica, measured against Claude Code 2.1.273 by live probes on
 # 2026-09-25 (docs: code.claude.com/docs/en/permissions):
@@ -59,11 +73,12 @@ set -uo pipefail
 
 ROOT=$(cd "$(dirname "$0")/.." && pwd)
 CORPUS=$ROOT/configs/claude/deny-corpus.tsv
+EXEMPT=$ROOT/configs/claude/deny-exempt.tsv
 SETTINGS=$ROOT/configs/claude/settings.json
 PROBE=/tmp/probe
-PREDICT=0 GAPS=0 VERBOSE=0
+PREDICT=0 GAPS=0 RULES=0 VERBOSE=0
 ONLY=()
-usage() { echo "usage: bin/test-deny-rules [--settings FILE] [--probe DIR] [--predict] [--gaps] [-v] [ID...]" >&2; exit 64; }
+usage() { echo "usage: bin/test-deny-rules [--settings FILE] [--probe DIR] [--predict] [--gaps] [--rules] [-v] [ID...]" >&2; exit 64; }
 while [ $# -gt 0 ]; do
 	case $1 in
 	--settings) [ $# -ge 2 ] || usage; SETTINGS=$2; shift ;;
@@ -72,6 +87,7 @@ while [ $# -gt 0 ]; do
 	--probe=*) PROBE=${1#*=} ;;
 	--predict) PREDICT=1 ;;
 	--gaps) GAPS=1 ;;
+	--rules) RULES=1 ;;
 	-v) VERBOSE=1 ;;
 	-h | --help) sed -n '2,/^set -uo/p' "$0" | sed '$d; s/^# \{0,1\}//'; exit 0 ;;
 	-*) echo "unknown option: $1" >&2; usage ;;
@@ -81,6 +97,7 @@ while [ $# -gt 0 ]; do
 done
 command -v jq > /dev/null && command -v zsh > /dev/null || { echo "needs jq and zsh" >&2; exit 69; }
 [ -r "$CORPUS" ] || { echo "no corpus at $CORPUS" >&2; exit 66; }
+[ -r "$EXEMPT" ] || { echo "no exemption list at $EXEMPT" >&2; exit 66; }
 [ -r "$SETTINGS" ] || { echo "no settings at $SETTINGS" >&2; exit 66; }
 
 # --- The lexer: zsh -f, reading the command from $RC_CMD, never evaluating it.
@@ -491,16 +508,20 @@ rule_hits() {
 	esac
 }
 
-# predict COMMAND: PRED=deny|allow, HIT=the rule, HITC=the text it matched
+# predict COMMAND: PRED=deny|allow, HITS=the index of every rule that refuses
+# it, HIT=the first of them, HITC=the text it matched
 predict() {
 	local c
 	local -i i
 	PRED=allow HIT='' HITC=''
-	CANDS=()
+	HITS=() CANDS=()
 	while IFS= read -r -d '' c; do CANDS+=("$c"); done < <(RC_CMD=$1 zsh -f -c "$ZSH_SRC")
-	for c in ${CANDS[@]+"${CANDS[@]}"}; do
-		for ((i = 0; i < NRULES; i++)); do
-			if rule_hits "$i" "$c"; then PRED=deny HIT=${R_TEXT[i]} HITC=$c; return 0; fi
+	for ((i = 0; i < NRULES; i++)); do
+		for c in ${CANDS[@]+"${CANDS[@]}"}; do
+			rule_hits "$i" "$c" || continue
+			HITS+=("$i")
+			[ "$PRED" = deny ] || { PRED=deny HIT=${R_TEXT[i]} HITC=$c; }
+			break
 		done
 	done
 }
@@ -523,10 +544,19 @@ fi
 ((PREDICT)) || echo "selfcheck ok: lexing ran no part of 5 commands that would create files"
 
 # --- The corpus
-cases=0 agree=0 differ=0 through=0 refused=0
-SEENIDS=() GAPLIST=()
+cases=0 agree=0 differ=0 through=0 refused=0 rows=0 declared=
+SEENIDS=() GAPLIST=() FOUND=()
+R_REACH=() R_SOLE=() R_SOLEIDS=()
+for ((i = 0; i < NRULES; i++)); do R_REACH+=(0) R_SOLE+=(0) R_SOLEIDS+=(''); done
 while IFS= read -r line || [ -n "$line" ]; do
-	case $line in '' | '#'*) continue ;; esac
+	case $line in
+	'# cases: '*)
+		declared=${line#'# cases: '}
+		[[ $declared =~ ^[1-9][0-9]*$ ]] || { echo "bad case count: $line" >&2; exit 65; }
+		continue ;;
+	'' | '#'*) continue ;;
+	esac
+	rows=$((rows + 1))
 	id=${line%%$'\t'*} rest=${line#*$'\t'}
 	right=${rest%%$'\t'*} rest=${rest#*$'\t'}
 	measured=${rest%%$'\t'*} rest=${rest#*$'\t'}
@@ -558,11 +588,17 @@ while IFS= read -r line || [ -n "$line" ]; do
 		keep=0
 		for s in "${ONLY[@]}"; do [ "$s" = "$id" ] && keep=1; done
 		((keep)) || continue
+		FOUND+=("$id")
 	fi
 	cmd=$(printf '%bx' "$raw") cmd=${cmd%x}
 	cmd=${cmd//<P>/$PROBE}
 	cases=$((cases + 1))
 	predict "$cmd"
+	for i in ${HITS[@]+"${HITS[@]}"}; do R_REACH[i]=$((R_REACH[i] + 1)); done
+	if [ ${#HITS[@]} -eq 1 ]; then
+		i=${HITS[0]}
+		R_SOLE[i]=$((R_SOLE[i] + 1)) R_SOLEIDS[i]+=" $id"
+	fi
 	if ((PREDICT)); then
 		printf '%s\t%s\n' "$id" "$PRED"
 		continue
@@ -584,7 +620,71 @@ while IFS= read -r line || [ -n "$line" ]; do
 		for c in ${CANDS[@]+"${CANDS[@]}"}; do printf '        | %s\n' "${c//$'\n'/\\n}"; done
 	fi
 done < "$CORPUS"
+# A typo in an ID, or a lost or cut-short corpus, must not pass as 0 of 0.
+bad=0
+for s in ${ONLY[@]+"${ONLY[@]}"}; do
+	seen=0
+	for f in ${FOUND[@]+"${FOUND[@]}"}; do [ "$f" = "$s" ] && seen=1; done
+	((seen)) || { echo "no row has the id $s" >&2; bad=1; }
+done
+((bad)) && exit 64
+if [ -z "$declared" ]; then
+	echo "the corpus header has no '# cases: N' line" >&2; exit 65
+elif [ "$declared" -ne "$rows" ]; then
+	echo "the corpus header says $declared cases, but the corpus holds $rows" >&2; exit 65
+fi
 ((PREDICT)) && exit 0
+
+# --- Coverage: each rule alone refuses some row, or deny-exempt.tsv says why
+# not. Lines: rule<TAB>redundant|older<TAB>why.
+X_RULE=() X_KIND=()
+while IFS= read -r line || [ -n "$line" ]; do
+	case $line in '' | '#'*) continue ;; esac
+	rule=${line%%$'\t'*} rest=${line#*$'\t'}
+	kind=${rest%%$'\t'*}
+	if [[ $line != *$'\t'*$'\t'?* || $rule != Bash\(*\) || ($kind != redundant && $kind != older) ]]; then
+		echo "bad exemption line: $line" >&2; exit 65
+	fi
+	for s in ${X_RULE[@]+"${X_RULE[@]}"}; do
+		[ "$s" = "$rule" ] && { echo "exempted twice: $rule" >&2; exit 65; }
+	done
+	X_RULE+=("$rule") X_KIND+=("$kind")
+done < "$EXEMPT"
+uncovered=0 nred=0 nold=0 ncov=0
+uncover() { printf 'UNCOVERED %s: %s\n' "$1" "$2"; uncovered=$((uncovered + 1)); }
+for ((i = 0; i < NRULES; i++)); do
+	kind=
+	for ((j = 0; j < ${#X_RULE[@]}; j++)); do [ "${X_RULE[j]}" = "${R_TEXT[i]}" ] && kind=${X_KIND[j]}; done
+	if ((RULES)); then
+		printf 'rule %s: refuses %d rows, %d of them alone%s%s\n' "${R_TEXT[i]}" "${R_REACH[i]}" \
+			"${R_SOLE[i]}" "${R_SOLEIDS[i]:+ (${R_SOLEIDS[i]# })}" "${kind:+; listed as $kind}"
+	fi
+	((${#ONLY[@]})) && continue
+	case $kind in
+	older) nold=$((nold + 1)) ;;
+	redundant)
+		nred=$((nred + 1))
+		((R_REACH[i])) || uncover "${R_TEXT[i]}" "listed as redundant, but no row reaches it"
+		((R_SOLE[i] == 0)) || uncover "${R_TEXT[i]}" "listed as redundant, but it alone refuses${R_SOLEIDS[i]}: take it off deny-exempt.tsv"
+		;;
+	*)
+		if ((R_REACH[i] == 0)); then
+			uncover "${R_TEXT[i]}" "no row reaches it: add a row, probed live, that it alone refuses"
+		elif ((R_SOLE[i] == 0)); then
+			uncover "${R_TEXT[i]}" "another rule refuses each row it refuses: add a row, probed live, that it alone refuses, or list it in deny-exempt.tsv as redundant"
+		else
+			ncov=$((ncov + 1))
+		fi ;;
+	esac
+done
+if ((${#ONLY[@]} == 0)); then
+	for ((j = 0; j < ${#X_RULE[@]}; j++)); do
+		held=0
+		for ((i = 0; i < NRULES; i++)); do [ "${X_RULE[j]}" = "${R_TEXT[i]}" ] && held=1; done
+		((held)) || uncover "${X_RULE[j]}" "deny-exempt.tsv lists it, but the rules do not hold it"
+	done
+fi
+
 if ((GAPS)); then
 	for g in ${GAPLIST[@]+"${GAPLIST[@]}"}; do printf 'gap  %s\n' "$g"; done
 fi
@@ -592,4 +692,9 @@ echo "rules: $NRULES Bash deny rules from $SETTINGS"
 echo "predicted as measured: $agree of $cases"
 echo "known gaps, where the measured answer is not the right one: $differ" \
 	"(let through: $through, refused though harmless: $refused)"
-[ "$agree" -eq "$cases" ]
+if ((${#ONLY[@]} == 0)); then
+	echo "coverage: $ncov rules each alone refuse a row;" \
+		"$nred listed as redundant, $nold older ones exempt; $uncovered uncovered"
+fi
+((cases > 0)) || { echo "no row was replayed" >&2; exit 1; }
+[ "$agree" -eq "$cases" ] && [ "$uncovered" -eq 0 ]

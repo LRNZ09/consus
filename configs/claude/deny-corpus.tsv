@@ -5,14 +5,18 @@
 #
 # right is the right answer: deny when the command runs git commit, push, merge
 # or pull with the git hooks off, or switches them off; allow otherwise. It is
-# not what the rules happen to do. measured is what Claude Code's own matcher
-# answered when the command was probed live against the current rules: deny
-# when a rule refused it, allow when it ran. A row whose two answers differ is
-# a known gap, and its why says so.
+# not what the rules happen to do. measured is the answer Claude Code's own
+# matcher gave when the row was last probed live: deny when a rule refused it,
+# allow when it ran. A rule change is probed again only on the rows whose
+# verdict it moves, so the other rows keep their last measured answer. A row
+# whose two answers differ is a known gap, and its why says so.
 #
 # In the command, \n is a newline, \t a tab and \\ a backslash (no other
 # escapes), and <P> stands for the scratch repository the probes ran in.
-# Nothing here ever runs. Every name, path and message is invented.
+# Nothing here ever runs. Every name, path and message is invented. The count
+# below is the number of rows, and the test checks it.
+#
+# cases: 438
 #
 # --- the six commands the eight old rules got wrong
 human-msg-sort-n	allow	allow	git commit -m 'sort -n output'	-n is message text, not a flag
@@ -435,6 +439,51 @@ sm-qn	deny	deny	git submodule foreach 'git commit -qn -m wip'	clustered -qn insi
 sm-sn	deny	deny	git submodule foreach 'git commit -sn -m wip'	clustered -sn inside submodule foreach
 sm-vn	deny	deny	git submodule foreach 'git commit -vn -m wip'	clustered -vn inside submodule foreach
 sm-a-nm	deny	deny	git submodule foreach 'git commit -a -nm wip'	-a -nm inside submodule foreach
+#
+# --- a row each for the rules no other row refuses alone, so that deleting
+#     any of them fails the test
+cv-lu-bunx	deny	deny	bunx lefthook uninstall	through bunx
+cv-lu-npm-exec	deny	deny	npm exec -- lefthook uninstall	through npm exec
+cv-dx-lh-dq-false	deny	deny	declare -x LEFTHOOK="false"; git push	declare -x, false double-quoted
+cv-dx-lh-sq-0	deny	deny	declare -x LEFTHOOK='0' && git commit -m x	declare -x, 0 single-quoted
+cv-dx-lh-sq-false	deny	deny	declare -x LEFTHOOK='false'; git push	declare -x, false single-quoted
+cv-dx-lh-false	deny	deny	declare -x LEFTHOOK=false; git commit -m x	declare -x, false
+cv-tx-lh-0	deny	deny	typeset -x LEFTHOOK=0 && git commit -m x	typeset -x, 0
+cv-tx-lh-dq-0	deny	deny	typeset -x LEFTHOOK="0"; git commit -m x	typeset -x, 0 double-quoted
+cv-tx-lh-dq-false	deny	deny	typeset -x LEFTHOOK="false" && git push	typeset -x, false double-quoted
+cv-tx-lh-sq-0	deny	deny	typeset -x LEFTHOOK='0'; git push	typeset -x, 0 single-quoted
+cv-env-lh-dq-false	deny	deny	env LEFTHOOK="false" git push	env, false double-quoted
+cv-env-lh-sq-0	deny	deny	env LEFTHOOK='0' git commit -m x	env, 0 single-quoted
+cv-export-lh-dq-false	deny	deny	export LEFTHOOK="false"; git push	export, false double-quoted
+cv-export-lh-sq-0	deny	deny	export LEFTHOOK='0' && git commit -m x	export, 0 single-quoted
+cv-C-config-env	deny	deny	git -C <P> --config-env=core.hooksPath=HOOKS_OFF commit -m x	--config-env after git -C
+cv-C-nv-last	deny	deny	git -C <P> commit -m x --no-verify	git -C, --no-verify last
+cv-C-n-before-opt	deny	deny	git -C <P> commit --amend -n --no-edit	git -C, -n before another option
+cv-C-a-nm	deny	deny	git -C <P> commit -a -nm x	git -C, -a -nm
+cv-C-qn	deny	deny	git -C <P> commit -qn -m x	git -C, clustered -qn
+cv-C-sn	deny	deny	git -C <P> commit -sn -m x	git -C, clustered -sn
+cv-C-vn	deny	deny	git -C <P> commit -vn -m x	git -C, clustered -vn
+cv-C-al-qn	deny	deny	git -C <P> config alias.cq 'commit -qn'	git -C, clustered -qn in an alias
+cv-C-al-sn	deny	deny	git -C <P> config alias.cs 'commit -sn'	git -C, clustered -sn in an alias
+cv-C-al-vn	deny	deny	git -C <P> config alias.cv 'commit -vn'	git -C, clustered -vn in an alias
+cv-C-merge-last	deny	deny	git -C <P> merge topic --no-verify	git -C, merge --no-verify last
+cv-config-sq	deny	deny	git config --local 'core.hooksPath' /dev/null	a single-quoted key
+cv-al-config-env	deny	deny	git config alias.ci '--config-env=core.hooksPath=H commit'	an alias whose value starts with --config-env
+cv-pull-mid	deny	deny	git pull --no-verify origin main	pull, flag before other words
+cv-rb-n	deny	deny	git rebase -x 'git commit -n --amend --no-edit' HEAD~1	-n right after commit inside rebase -x
+cv-rb-an	deny	deny	git rebase -x 'git commit -anm fixup' HEAD~1	clustered -an inside rebase -x
+cv-rb-n-before-opt	deny	deny	git rebase -x 'git commit --amend -n --no-edit' HEAD~1	-n before another option inside rebase -x
+cv-rb-n-last	deny	deny	git rebase HEAD~1 -x 'git commit --amend -n' -n	the exec's commit has -n; git rebase * commit * -n sees only the last word, here rebase's own -n
+cv-rb-merge-nv	deny	deny	git rebase -x 'git merge --no-verify topic' HEAD~1	merge --no-verify inside rebase -x
+cv-rb-push-nv	deny	deny	git rebase -x 'git push --no-verify' HEAD~1	push --no-verify inside rebase -x
+cv-rb-config-env	deny	deny	git rebase -x 'git --config-env=core.hooksPath=H commit --amend --no-edit' HEAD~1	--config-env inside rebase -x
+cv-rb-c-hookspath	deny	deny	git rebase -x 'git -c core.hooksPath=/dev/null commit --amend --no-edit' HEAD~1	-c core.hooksPath inside rebase -x
+cv-sm-n	deny	deny	git submodule foreach 'git commit -n -m wip'	-n right after commit inside submodule foreach
+cv-sm-an	deny	deny	git submodule foreach 'git commit -anm wip'	clustered -an inside submodule foreach
+cv-sm-n-before-opt	deny	deny	git submodule foreach 'git commit --amend -n --no-edit'	-n before another option inside submodule foreach
+cv-sm-n-last	deny	deny	git submodule foreach git commit -am wip -n	foreach takes its command unquoted too, -n last
+cv-sm-config-env	deny	deny	git submodule foreach 'git --config-env=core.hooksPath=H commit -m wip'	--config-env inside submodule foreach
+cv-sm-c-hookspath	deny	deny	git submodule foreach 'git -c core.hooksPath=/dev/null commit -m wip'	-c core.hooksPath inside submodule foreach
 #
 # --- forms no rule names
 pc-skip-env	deny	allow	env SKIP=gitleaks git commit -m x	SKIP through env | known gap
