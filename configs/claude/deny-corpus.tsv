@@ -376,11 +376,21 @@ hk-dq	deny	deny	HUSKY="0" git commit -m x	quoted: a quoted first word is unquote
 hk-env	deny	deny	env HUSKY=0 git push	through env
 hk-export	deny	deny	export HUSKY=0 && git commit -m x	by export
 hk-env-sq	deny	allow	env HUSKY='0' git push	quoted, through env | known gap
-hk-export-dq	deny	allow	export HUSKY="0"; git push	quoted, by export | known gap
-hk-declare	deny	allow	declare -x HUSKY=0; git commit -m x	by declare -x | known gap
+hk-export-dq	deny	deny	export HUSKY="0"; git push	quoted, by export: export *HUSKY* names no value
+hk-declare	deny	deny	declare -x HUSKY=0; git commit -m x	by declare -x
 hk-one	allow	allow	HUSKY=1 git commit -m x	HUSKY=1 keeps the hooks on
 hk-msg	allow	allow	git commit -m 'skip husky with HUSKY=0'	message text
 hk-status	allow	deny	HUSKY=0 git status	git status runs no hook | known gap
+lb-export-name	deny	deny	LEFTHOOK_BIN=true; export LEFTHOOK_BIN; git commit -m x	set first, then exported by name: LEFTHOOK_BIN=* refuses the assignment itself
+lb-declare-name	deny	deny	LEFTHOOK_BIN=true; declare -x LEFTHOOK_BIN; git commit -m x	set first, then exported by declare -x
+lb-set-a	deny	deny	set -a; LEFTHOOK_BIN=true; git commit -m x	set -a exports a plain assignment, which LEFTHOOK_BIN=* refuses
+lb-lefthook-run	allow	deny	LEFTHOOK_BIN=./bin/lefthook lefthook run pre-commit	runs lefthook itself, hooks and all, but LEFTHOOK_BIN=* refuses whatever follows it | known gap
+lx-export-name	deny	deny	LEFTHOOK_EXCLUDE=gitleaks; export LEFTHOOK_EXCLUDE; git push	set first, then exported by name: export *LEFTHOOK_EXCLUDE* names no value
+lc-export-name	deny	deny	LEFTHOOK_CONFIG=/dev/null; export LEFTHOOK_CONFIG; git commit -m x	set first, then exported by name
+hk-export-name	deny	deny	HUSKY=0; export HUSKY; git commit -m x	set first, then exported by name
+hk-set-a	deny	deny	set -a; HUSKY=0; git commit -m x	set -a exports it; the rule HUSKY=0 refuses the bare assignment
+hk-typeset	deny	deny	typeset -x HUSKY=0 && git push	by typeset -x
+hk-export-one	allow	deny	export HUSKY=1 && git commit -m x	HUSKY=1 keeps the hooks on, but export *HUSKY* refuses any export that names it | known gap
 #
 # --- pull and git config after git's own options, and aliases
 pull-C	deny	deny	git -C <P> pull --no-verify	git -C before pull
@@ -417,3 +427,7 @@ rb-C-nv-late	deny	allow	git -C <P> rebase -x 'git commit --amend --no-edit --no-
 sm-C-nv-late	deny	allow	git -C <P> submodule foreach 'git commit -m x --no-verify'	after git -C, --no-verify inside submodule foreach that is not first after commit | known gap
 sm-late-n	deny	allow	git submodule foreach 'git commit -m x -n'	-n inside submodule foreach, not right after commit and not last | known gap
 al-C-config-env	deny	allow	git -C <P> config alias.ci '--config-env=core.hooksPath=H commit'	after git -C, an alias whose value starts with --config-env | known gap
+lx-set-a	deny	allow	set -a; LEFTHOOK_EXCLUDE=gitleaks; git push	set -a exports a plain assignment, and a rule for a bare LEFTHOOK_EXCLUDE= would refuse lefthook run | known gap
+lc-set-a	deny	allow	set -a; LEFTHOOK_CONFIG=/dev/null; git commit -m x	set -a exports a plain assignment | known gap
+ro-x	deny	allow	readonly -x LEFTHOOK=0; git commit -m x	readonly -x exports it too | known gap
+lh-typeset-name	deny	allow	typeset LEFTHOOK=0; export LEFTHOOK; git push	set by typeset without -x, then exported by name | known gap
