@@ -70,14 +70,13 @@ So `git commit -m 'sort -n output'` and `git push -n` run.
 
 Known gaps. Getting through: a flag before a pathspec; a `commit`
 abbreviation or cluster that is not right after the subcommand; a late `-n`
-inside `rebase -x`, `submodule foreach` or an alias; `pull --no-verify`
-inside `rebase -x`; `CORE.HOOKSPATH` in capitals; a flag after a
-redirection; a quoted subcommand or flag; a bypass variable among other
-assignments, or exported by `typeset -gx`, by any cluster other than a lone
-`-x`, or by `readonly -x`; `LEFTHOOK_EXCLUDE` or `LEFTHOOK_CONFIG` set as a
-plain shell variable under `set -a`; `LEFTHOOK` set by `typeset`, `declare`
-or `local` without `-x`, then exported by name; `HUSKY` quoted through
-`env`; `SKIP` through `env` or `export`;
+inside `rebase -x`, `submodule foreach` or an alias; `CORE.HOOKSPATH` in
+capitals; a flag after a redirection; a quoted subcommand or flag; a bypass
+variable among other assignments, or exported by `typeset -gx`, by any
+cluster other than a lone `-x`, or by `readonly -x`; `LEFTHOOK_EXCLUDE` or
+`LEFTHOOK_CONFIG` set as a plain shell variable under `set -a`; `LEFTHOOK`
+set by `typeset`, `declare` or `local` without `-x`, then exported by name;
+`HUSKY` quoted through `env`; `SKIP` through `env` or `export`;
 `core.hooksPath` set in a config file that git reads, through
 `GIT_CONFIG_GLOBAL`, `GIT_CONFIG_SYSTEM` or `-c include.path=<file>`;
 `lefthook uninstall` through any other launcher, such as `mise exec` or

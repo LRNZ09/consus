@@ -16,7 +16,7 @@
 # Nothing here ever runs. Every name, path and message is invented. The count
 # below is the number of rows, and the test checks it.
 #
-# cases: 438
+# cases: 442
 #
 # --- the six commands the eight old rules got wrong
 human-msg-sort-n	allow	allow	git commit -m 'sort -n output'	-n is message text, not a flag
@@ -490,7 +490,11 @@ pc-skip-env	deny	allow	env SKIP=gitleaks git commit -m x	SKIP through env | know
 pc-skip-export	deny	allow	export SKIP=gitleaks && git commit -m x	SKIP by export | known gap
 lu-mise	deny	allow	mise exec -- lefthook uninstall	a launcher no rule names | known gap
 rb-C-nv-late	deny	allow	git -C <P> rebase -x 'git commit --amend --no-edit --no-verify' HEAD~1	after git -C, --no-verify inside rebase -x that is not first after commit | known gap
-rb-pull-nv	deny	allow	git rebase -x 'git pull --no-verify' HEAD~1	pull --no-verify inside rebase -x: the rules name commit, merge and push there, not pull | known gap
+rb-pull-nv	deny	deny	git rebase -x 'git pull --no-verify' HEAD~1	pull --no-verify inside rebase -x, single-quoted
+rb-pull-nv-dq	deny	deny	git rebase -x "git pull --no-verify" HEAD~1	pull --no-verify inside rebase -x, double-quoted
+rb-pull-nv-arg	deny	deny	git rebase -x 'git pull --no-verify origin main' HEAD~1	pull --no-verify inside rebase -x, before more arguments
+rb-pull-sigs	allow	allow	git rebase -x 'git pull --no-verify-signatures' HEAD~1	a longer pull flag inside rebase -x, not the hooks switch
+rb-log-n	allow	allow	git rebase -x 'git log -n 1' HEAD~1	a harmless command inside rebase -x
 sm-C-nv-late	deny	allow	git -C <P> submodule foreach 'git commit -m x --no-verify'	after git -C, --no-verify inside submodule foreach that is not first after commit | known gap
 sm-late-n	deny	allow	git submodule foreach 'git commit -m x -n'	-n inside submodule foreach, not right after commit and not last | known gap
 al-C-config-env	deny	allow	git -C <P> config alias.ci '--config-env=core.hooksPath=H commit'	after git -C, an alias whose value starts with --config-env | known gap

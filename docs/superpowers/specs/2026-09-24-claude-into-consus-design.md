@@ -289,7 +289,7 @@ ways around the hooks. Until 2026-09-25 that was eight rules in the
 through `Bash(git commit * -n*)` and `Bash(git commit * --no-verify*)`, while
 `git -C dir commit --no-verify`, `env LEFTHOOK=0 git push`,
 `git -c core.hooksPath=/dev/null commit` and `git merge --no-verify topic` all
-got past them. Now 140 rules refuse a `commit`, `push`, `merge` or `pull` run
+got past them. Now 143 rules refuse a `commit`, `push`, `merge` or `pull` run
 with the hooks off, and each way of turning them off that a rule can see:
 
 - `--no-verify`, and for `commit` and `push` the abbreviations `--no-veri`
@@ -378,11 +378,10 @@ or has no rule yet:
   git's own options, above. A bypass variable exported by `typeset -gx`, by
   any other cluster than a lone `-x`, or by `readonly -x`. `LEFTHOOK` set by
   `typeset`, `declare` or `local` without `-x`, then exported by name
-  (`typeset LEFTHOOK=0; export LEFTHOOK`). `pull --no-verify` inside
-  `rebase -x`, where the rules name only `commit`, `merge` and `push`.
-  `HUSKY` quoted through `env`. `SKIP` through `env` or `export`. And
-  `lefthook uninstall` through any other launcher, such as the `mise exec`,
-  `go tool`, `bundle exec` or `uv run` that lefthook's own hook tries.
+  (`typeset LEFTHOOK=0; export LEFTHOOK`). `HUSKY` quoted through `env`.
+  `SKIP` through `env` or `export`. And `lefthook uninstall` through any
+  other launcher, such as the `mise exec`, `go tool`, `bundle exec` or
+  `uv run` that lefthook's own hook tries.
 - **Refused**, because the text is the flag, byte for byte. A value in a
   flag's position: `git commit -m -n`, `git commit --message --no-verify`, a
   pathspec named `--no-verify`, `git merge -m --no-verify`,
@@ -755,17 +754,21 @@ The same way, against the same versions.
   `include.path` given with `-c`: "relative config includes must come from
   files".
 - On 2026-09-27, `git rebase -x 'git pull --no-verify' HEAD~1` ran: the rules
-  under `git rebase *` name `commit`, `merge` and `push`, not `pull`.
-- The corpus now holds 438 commands. The 159 deny rules, 140 against a
-  hooks-off run and the 19 older ones, get 362 right; the 76 they get wrong
-  are the gaps listed in "Private values": 38 bypasses let through and 38
+  under `git rebase *` named `commit`, `merge` and `push`, not `pull`. Three
+  rules added that day refuse it: `--no-verify` followed by a single quote, a
+  double quote or a space. Probed live, all three forms were refused, and
+  `git rebase -x 'git pull --no-verify-signatures' HEAD~1` and
+  `git rebase -x 'git log -n 1' HEAD~1` ran.
+- The corpus now holds 442 commands. The 162 deny rules, 143 against a
+  hooks-off run and the 19 older ones, get 367 right; the 75 they get wrong
+  are the gaps listed in "Private values": 37 bypasses let through and 38
   harmless commands refused, the same 2 of those by the older rules. Each of
   the 93 probes run on rows after this change, 75 of them on new rows, came
   out as the replica predicted, and so did 54 more: a refused and a harmless
   form for each rule the change added, a refused one for five it dropped, and
   `LEFTHOOK_EXCLUDE=gitleaks lefthook version`, which ran.
-  With the eight rules the first change replaced, the replica gets 241
-  wrong. Each of the 140 is the only rule that refuses some row, so deleting
+  With the eight rules the first change replaced, the replica gets 243
+  wrong. Each of the 143 is the only rule that refuses some row, so deleting
   any one of them fails the test.
 
 ### From the documentation, checked 2026-09-24
