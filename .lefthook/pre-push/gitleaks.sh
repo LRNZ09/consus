@@ -5,7 +5,7 @@
 # lines on stdin. A lefthook script rather than a command: see lefthook.yml.
 #
 # --log-opts goes to gitleaks' own git log -p, and its flags keep user config
-# from hiding a line, as bin/placeholders' check-push does. Measured on
+# from hiding a line, as bin/work-terms' check-push does. Measured on
 # gitleaks 8.30.1, each of these let an address through without them: color.ui
 # or color.diff set to always, a textconv driver, log.showRoot=false on a root
 # commit, and a merge's own changes.

@@ -4,11 +4,11 @@
 #
 # Link integrity is the one invariant git cannot express — the repo can be
 # pristine while $XDG_CONFIG_HOME points somewhere else, and for git, fish and
-# proto a severed link is completely silent. For agents and for claude's
-# settings.json a dangling one is worse than silent: see their link tests.
-# Since the links are now made by hand (INSTALL.md), the two things the old
-# installer did quietly — the clone's mode and lefthook's hooks — are asserted
-# here too, and so is the placeholders filter, which is per-clone git config.
+# proto a severed link is completely silent. For agents a dangling one is
+# worse than silent: see the agents link test. Since the links are now made by
+# hand (INSTALL.md), the two things the old installer did quietly — the clone's
+# mode and lefthook's hooks — are asserted here too, and so is the work-term
+# list the guards read, which lives outside the working tree.
 #
 # Run it as bin/doctor. The one side effect is the fish probe: `fish -c`
 # sources conf.d/proto.fish, which runs `proto activate`, and that materialises
@@ -32,17 +32,10 @@ setup_file() {
 	# dotagents' own root lookup. Its record is a single file for the same
 	# reason as proto's: DOTAGENTS_HOME relocates skills/ along with it.
 	AGENTS_ROOT="${DOTAGENTS_HOME:-$HOME/.agents}"
-	# Claude Code's own lookup. Its record is four links rather than one
-	# directory link: CLAUDE_CONFIG_DIR relocates sessions, transcripts and
-	# plugins along with the settings — 4 GB that must stay out of this repo.
-	CLAUDE_HOME="${CLAUDE_CONFIG_DIR:-$HOME/.claude}"
-	# bin/placeholders' own default, with the same override.
-	PLACEHOLDER_MAP="${PLACEHOLDER_MAP:-$HOME/.claude/placeholders.tsv}"
-	export REPO CONFIG_HOME RECORD PROTO_STORE AGENTS_ROOT CLAUDE_HOME PLACEHOLDER_MAP
+	export REPO CONFIG_HOME RECORD PROTO_STORE AGENTS_ROOT
 	echo "# repo: $REPO" >&3
 	echo "# proto store: $PROTO_STORE" >&3
 	echo "# agents root: $AGENTS_ROOT" >&3
-	echo "# claude home: $CLAUDE_HOME" >&3
 }
 
 # assert_link <path> <target> — the whole health of a link, in one place. The
@@ -273,120 +266,22 @@ require_link() {
 	}
 }
 
-@test "~/.claude/settings.json links into this clone" {
-	# The worst dangling case in the repo. Claude Code saves by temp file and
-	# rename on the link target, so the link survives every save — but measured
-	# on 2.1.273, with the target gone it reads empty settings in silence (no
-	# permission rule, hook or autoMode entry), and its next save writes a
-	# settings.json holding only that one change into configs/claude/.
-	# git restore it, then look for anything saved in between.
-	assert_link "$CLAUDE_HOME/settings.json" "$RECORD/claude/settings.json"
-}
-
-@test "~/.claude/AGENTS.md links into this clone" {
-	# Severed, the global instructions are simply absent from every session.
-	assert_link "$CLAUDE_HOME/AGENTS.md" "$RECORD/claude/AGENTS.md"
-}
-
-@test "~/.claude/hooks links into this clone" {
-	# Severed, the two PreToolUse hooks stop injecting their context. Neither
-	# ever blocks a call, so nothing else says so.
-	assert_link "$CLAUDE_HOME/hooks" "$RECORD/claude/hooks"
-}
-
-@test "~/.claude/scripts links into this clone" {
-	# Severed, the status line disappears.
-	assert_link "$CLAUDE_HOME/scripts" "$RECORD/claude/scripts"
-}
-
-@test "claude is 2.1.277 or later" {
-	command -v claude >/dev/null 2>&1 || skip "claude is not installed"
-	# Below 2.1.277 Claude Code reads no AGENTS.md at all, and nothing here
-	# gives it a CLAUDE.md, so terminal sessions run without the global
-	# instructions. The stable cask was 2.1.273 on 2026-09-24: this fails on
-	# purpose until stable catches up. The VS Code extension bundles its own
-	# binary, which this does not ask about.
-	local v
-	v=$(claude --version 2>/dev/null | awk '{ print $1 }')
-	[ -n "$v" ] || {
-		echo "claude --version printed nothing"
-		return 1
-	}
-	printf '%s\n%s\n' 2.1.277 "$v" | sort -V -C || {
-		echo "claude is $v, below 2.1.277: terminal sessions load no AGENTS.md"
-		return 1
-	}
-}
-
-@test "the placeholders filter is configured in this clone" {
-	# .gitattributes names the filter; this clone's git config defines it.
-	# Undefined, git stores configs/claude/settings.json exactly as it is on
-	# disk — real values included — and filter.placeholders.required only
-	# applies once the filter is defined.
-	local key got bad=0
-	for key in clean smudge; do
-		got=$(git -C "$REPO" config --get "filter.placeholders.$key" || true)
-		[ "$got" = "bin/placeholders $key" ] || {
-			echo "filter.placeholders.$key is '$got' (expected 'bin/placeholders $key')"
-			bad=1
-		}
-	done
-	got=$(git -C "$REPO" config --type=bool --get filter.placeholders.required || true)
-	[ "$got" = true ] || {
-		echo "filter.placeholders.required is '$got' (expected true)"
-		bad=1
-	}
-	[ "$bad" -eq 0 ] || {
-		echo "run the three git config filter.placeholders lines of INSTALL.md step 2;"
-		echo "the step's last line is guarded and safe to re-run"
-		return 1
-	}
-}
-
-@test "the placeholder map is readable" {
+@test "the work-term list is readable" {
 	# Without it every guard fails closed and nothing can be committed; this
-	# names the file before a commit does. It is untracked and exists nowhere
-	# else on this machine. Exactly one guard row: the guards refuse a second
-	# one, which used to replace the first in silence.
-	local rows
-	[ -r "$PLACEHOLDER_MAP" ] || {
-		echo "$PLACEHOLDER_MAP is missing or unreadable — restore it from backup"
+	# names the file before a commit does. It lives in .git/info, where git can
+	# neither stage nor clean it, and exists nowhere else on this machine.
+	# Exactly one guard row: the guards refuse a second one, which used to
+	# replace the first in silence.
+	local terms rows
+	terms="${WORK_TERMS:-$(git -C "$REPO" rev-parse --path-format=absolute --git-common-dir)/info/terms.tsv}"
+	[ -r "$terms" ] || {
+		echo "$terms is missing or unreadable — restore it from backup (INSTALL.md step 2)"
 		return 1
 	}
-	rows=$(grep -c "^guard$(printf '\t')" "$PLACEHOLDER_MAP" || true)
-	[ "$rows" -gt 0 ] || {
-		echo "$PLACEHOLDER_MAP has no guard row, so every guard refuses everything"
-		return 1
-	}
+	rows=$(grep -c "^guard$(printf '\t')" "$terms" || true)
 	[ "$rows" -eq 1 ] || {
-		echo "$PLACEHOLDER_MAP has $rows guard rows, so every guard refuses everything;"
-		echo "join them with | into one"
-		return 1
-	}
-}
-
-@test "the live settings.json holds real values, not placeholders" {
-	# smudge never fails, so a checkout that cannot resolve a token — the map
-	# missing or short of a row another machine added, a conflicted merge,
-	# INSTALL.md step 2 run before the map is back — leaves it in the live file
-	# in silence, and autoMode then describes a token, not the host. Once the
-	# map is back, git status and git add fail with a misleading message. No
-	# token git stores may appear in the live file. Prints token names only:
-	# they are public, the values are not.
-	local live="$RECORD/claude/settings.json" tokens token found=
-	[ -r "$PLACEHOLDER_MAP" ] || skip "the map is unreadable — see the map test"
-	[ -f "$live" ] || skip "$live is missing — see its link test"
-	tokens=$(git -C "$REPO" show :configs/claude/settings.json 2>/dev/null |
-		grep -o '<[a-z0-9][a-z0-9-]*>' | sort -u || true)
-	for token in $tokens; do
-		if grep -qF -- "$token" "$live"; then
-			found="$found $token"
-		fi
-	done
-	[ -z "$found" ] || {
-		echo "configs/claude/settings.json holds placeholders, not real values:$found"
-		echo "with the map restored, run in $REPO:"
-		echo "  bin/placeholders smudge < configs/claude/settings.json > configs/claude/settings.json.tmp.fix && mv configs/claude/settings.json.tmp.fix configs/claude/settings.json"
+		echo "$terms has $rows guard rows, so every guard refuses everything;"
+		echo "it needs exactly one (join terms with |)"
 		return 1
 	}
 }
@@ -404,13 +299,9 @@ teardown_file() {
 	# The tools read the working tree, so the machine and the working tree agree
 	# by construction. A dirty tree means the *committed* record has not caught
 	# up, and the design wants that visible rather than hidden.
-	# git status fails outright when the filter refuses settings.json, and
-	# its own message then misleads: say so rather than swallow it.
 	local queue
-	if ! queue=$(git -C "$REPO" status --porcelain 2>/dev/null); then
-		echo "# note: git status failed — usually a private value in settings.json" >&3
-		echo "#       the map does not cover (see configs/claude/README.md)." >&3
-	elif [ -n "$queue" ]; then
+	queue=$(git -C "$REPO" status --porcelain 2>/dev/null || true)
+	if [ -n "$queue" ]; then
 		echo "# note: uncommitted changes — git restore <path> if the record was" >&3
 		echo "#       right, git commit if the machine was:" >&3
 		printf '%s\n' "$queue" | sed 's|^|#         |' >&3
@@ -420,11 +311,5 @@ teardown_file() {
 	if [ -e "$AGENTS_ROOT/.git" ]; then
 		echo "# note: $AGENTS_ROOT/.git exists — a checkout there restores a" >&3
 		echo "#       regular agents.toml over the link." >&3
-	fi
-	# The same for the retired dotclaude checkout, which still tracks
-	# settings.json, AGENTS.md and hooks/ at the paths the links now occupy.
-	if [ -e "$CLAUDE_HOME/.git" ]; then
-		echo "# note: $CLAUDE_HOME/.git exists — a checkout there restores" >&3
-		echo "#       regular files over three of the four links." >&3
 	fi
 }
