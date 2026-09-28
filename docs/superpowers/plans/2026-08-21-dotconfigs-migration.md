@@ -1,12 +1,12 @@
-# consus Migration Implementation Plan
+# dotconfigs Migration Implementation Plan
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use
 > superpowers:subagent-driven-development (recommended) or
 > superpowers:executing-plans to implement this plan task-by-task. Steps use
 > checkbox (`- [ ]`) syntax for tracking.
 
-**Goal:** Rename `LRNZ09/dotgit` to `LRNZ09/consus`, restructure it into a
-browsable repo at `~/Developer/LRNZ09/consus` that also holds the fish and
+**Goal:** Rename `LRNZ09/dotgit` to `LRNZ09/dotconfigs`, restructure it into a
+browsable repo at `~/Developer/LRNZ09/dotconfigs` that also holds the fish and
 ghostty configuration, and activate it by pointing each tool's own default path
 at it with a symlink — without deleting anything, and without a human at the
 keyboard.
@@ -25,7 +25,7 @@ still point here.
 4.8.0 + fisher, ghostty 1.3.1, lefthook 2.1.10, gitleaks 8.30.1, `gh` 2.96.0
 for the rename and the CI gate.
 
-**Spec:** `docs/superpowers/specs/2026-08-21-consus-migration-design.md` —
+**Spec:** `docs/superpowers/specs/2026-08-21-dotconfigs-migration-design.md` —
 read it alongside this plan. Every "why" lives there; this plan argues from it
 and does not restate its measurements.
 
@@ -61,19 +61,19 @@ and that `gh` is authenticated without one.
 
 Every task's requirements implicitly include this section.
 
-- **Repo name and remote:** `LRNZ09/consus`,
-  `https://github.com/LRNZ09/consus.git`. The rename happens before anything is
-  cloned, so no artifact ever carries the old name.
-- **Clone path:** `~/Developer/LRNZ09/consus`, mode `700`.
-- **State file:** `~/Backups/consus-migration.env`. Tasks append `KEY=value`
-  lines to it and later tasks open with `. ~/Backups/consus-migration.env`.
+- **Repo name and remote:** `LRNZ09/dotconfigs`,
+  `https://github.com/LRNZ09/dotconfigs.git`. The rename happens before
+  anything is cloned, so no artifact ever carries the old name.
+- **Clone path:** `~/Developer/LRNZ09/dotconfigs`, mode `700`.
+- **State file:** `~/Backups/dotconfigs-migration.env`. Tasks append `KEY=value`
+  lines to it and later tasks open with `. ~/Backups/dotconfigs-migration.env`.
   Nothing in this plan is carried in a human's head or in a single shell.
 - **`chmod 700 ~/Backups`.** It holds the config tarball — every credential
   under `~/.config` in the clear — and a sandbox containing copies of
   `configs/git/config-local` and `configs/git/config-work`. It is mode `755`
   today.
 - **Backups never go to `~/Desktop` or `~/Documents`** — both are iCloud-synced.
-  `~/Backups` only. The sandbox goes to `~/Backups/consus-sandbox`, never
+  `~/Backups` only. The sandbox goes to `~/Backups/dotconfigs-sandbox`, never
   `/tmp`: a world-readable sandbox would expose the identity files the fixture
   copies.
 - **Nothing is ever deleted.** No `rm`, no `rm -rf`, in any task. Every
@@ -177,8 +177,8 @@ they are collected here so a reviewer can see them at once.
 2. **`lefthook install` resolves its config from the caller's CWD, not the
    repo.** Measured: run from an unrelated git repo it *creates* a
    `lefthook.yml` there, installs hooks into that repo, exits 0 — and
-   `bin/install` then prints a success line naming the consus clone, which is
-   false. Run from outside any repo it exits 128, which with `set -eu` and
+   `bin/install` then prints a success line naming the dotconfigs clone, which
+   is false. Run from outside any repo it exits 128, which with `set -eu` and
    `>/dev/null` kills the script silently *after* the links are made. Both are
    fixed by running it in a subshell that cds to the repo, and by reporting the
    failure. This matters most for `sancus`, which will not have cd'd anywhere.
@@ -198,7 +198,7 @@ they are collected here so a reviewer can see them at once.
 6. **The sandbox must not live in `/tmp`.** The fixture copies `~/.config/git`
    wholesale, which includes `config-local`, `config-work` and the mode-700
    `.remember/`. `${TMPDIR:-/tmp}` is safe on macOS and world-readable on the
-   fallback. Use `~/Backups/consus-sandbox` with mode 700.
+   fallback. Use `~/Backups/dotconfigs-sandbox` with mode 700.
 7. **`gh repo rename` prompts without `--yes`**, and the plan's next line
    repointed `origin` unconditionally — so a failed rename plus a successful
    `set-url` would leave `origin` naming a repo that does not exist, surfacing
@@ -305,7 +305,7 @@ damaging them. A prose hard tab or a long prose line is still an error.
 ## File Structure
 
 ```text
-~/Developer/LRNZ09/consus/            mode 700, created by Task 4's clone
+~/Developer/LRNZ09/dotconfigs/            mode 700, created by Task 4's clone
 ├── README.md                        Task 6  — operational: what is managed, quickstart, hazards
 ├── LICENSE                          Task 15 — MIT, matching vesta
 ├── .gitignore                       Task 6  — the fish allow-list; /configs/git/.remember/
@@ -315,8 +315,8 @@ damaging them. A prose hard tab or a long prose line is still an error.
 ├── .github/workflows/gitleaks.yml   arrives with the rename, unchanged
 ├── bin/install                      Task 8  — plan, validate, apply; never deletes
 ├── bin/doctor                       Task 9  — read-only probe
-├── docs/superpowers/specs/2026-08-21-consus-migration-design.md             arrives with the rename; Status line edited in Task 15
-├── docs/superpowers/plans/2026-08-21-consus-migration.md   this plan
+├── docs/superpowers/specs/2026-08-21-dotconfigs-migration-design.md             arrives with the rename; Status line edited in Task 15
+├── docs/superpowers/plans/2026-08-21-dotconfigs-migration.md   this plan
 └── configs/                         what each tool reads, under the tool's own name
     ├── git/                         Task 4 (git mv) + Task 5 (ignore)
     │   ├── config                   the global config, read through the link
@@ -359,16 +359,16 @@ every credential on this machine in the clear.
 
 **Files:**
 
-- Create: `~/Backups/consus-migration.env` (the state file; never committed)
+- Create: `~/Backups/dotconfigs-migration.env` (the state file; never committed)
 - Modify: `~/Backups` permissions
 
 **Interfaces:**
 
 - Consumes: nothing.
-- Produces: `~/Backups/consus-migration.env`, which exports
+- Produces: `~/Backups/dotconfigs-migration.env`, which exports
   `GH_PROMPT_DISABLED`, `GH_NO_UPDATE_NOTIFIER` and `GIT_EDITOR`, defines `SP`
   and `CLONE`, and defines the shell function `ci_green <sha>`. Every later task
-  opens with `. ~/Backups/consus-migration.env`.
+  opens with `. ~/Backups/dotconfigs-migration.env`.
 
 - [ ] **Step 1: Create and harden the working directories**
 
@@ -376,8 +376,8 @@ every credential on this machine in the clear.
 mkdir -p ~/Backups
 chmod 700 ~/Backups
 test "$(stat -f '%Lp' ~/Backups)" = 700
-mkdir -p ~/Backups/consus-sandbox/work
-chmod 700 ~/Backups/consus-sandbox
+mkdir -p ~/Backups/dotconfigs-sandbox/work
+chmod 700 ~/Backups/dotconfigs-sandbox
 ```
 
 `~/Backups` is mode `755` today and is about to hold the `~/.config` tarball —
@@ -387,9 +387,9 @@ all 32 credentials across seven stores — plus a sandbox holding copies of
 - [ ] **Step 2: Write the state file**
 
 ```sh
-cat > ~/Backups/consus-migration.env <<'EOF'
-# consus migration state. Sourced by every task in
-# docs/superpowers/plans/2026-08-21-consus-migration.md.
+cat > ~/Backups/dotconfigs-migration.env <<'EOF'
+# dotconfigs migration state. Sourced by every task in
+# docs/superpowers/plans/2026-08-21-dotconfigs-migration.md.
 # Appended to as the migration progresses; never committed.
 
 # Any overlooked interactive gh path becomes a fast failure, not a hang.
@@ -400,8 +400,8 @@ export GH_NO_UPDATE_NOTIFIER=1
 # means something is wrong: fail rather than wait.
 export GIT_EDITOR=false
 
-SP=$HOME/Backups/consus-sandbox
-CLONE=$HOME/Developer/LRNZ09/consus
+SP=$HOME/Backups/dotconfigs-sandbox
+CLONE=$HOME/Developer/LRNZ09/dotconfigs
 
 # ci_green <full-sha> — wait for the gitleaks workflow run for that commit and
 # gate on its conclusion. `gh run list` cannot do this: it exits 0 regardless of
@@ -411,7 +411,7 @@ CLONE=$HOME/Developer/LRNZ09/consus
 # auth failure is reported as such instead of being mistaken for "not started".
 ci_green() {
 	_sha="$1"
-	_slug="${CONSUS_SLUG:-LRNZ09/consus}"
+	_slug="${DOTCONFIGS_SLUG:-LRNZ09/dotconfigs}"
 	_deadline=$(( $(date +%s) + 600 ))
 	_errors=0
 	while [ "$(date +%s)" -lt "$_deadline" ]; do
@@ -436,7 +436,7 @@ ci_green() {
 	return 1
 }
 EOF
-. ~/Backups/consus-migration.env
+. ~/Backups/dotconfigs-migration.env
 test "$GIT_EDITOR" = false && test -n "$SP" && test -n "$CLONE"
 ```
 
@@ -472,10 +472,10 @@ test "$(wc -l < ~/.config/fish/fish_plugins | tr -d ' ')" -eq 6
 ```
 
 Every one of these must pass, and they are also what tells a resumed run where
-it is: if the remote already says `consus`, Task 3 has run and this step should
-be skipped rather than fixed. If `abbr | count` is not 169 or the entry count is
-not 104, Task 1 has already run. Task 1 and Task 3 each refuse cleanly on their
-own preconditions when repeated, so a retry cannot half-apply them.
+it is: if the remote already says `dotconfigs`, Task 3 has run and this step
+should be skipped rather than fixed. If `abbr | count` is not 169 or the entry
+count is not 104, Task 1 has already run. Task 1 and Task 3 each refuse cleanly
+on their own preconditions when repeated, so a retry cannot half-apply them.
 
 - [ ] **Step 5: Verify a signed commit completes with no prompt**
 
@@ -503,7 +503,7 @@ Task 14 asserts this, and it needs a repo *physically* inside
 `~/Developer/work`:
 
 ```sh
-W=$(mktemp -d ~/Developer/work/consus-verify-XXXX)
+W=$(mktemp -d ~/Developer/work/dotconfigs-verify-XXXX)
 ( cd "$W" && git init -q . && git commit -q --allow-empty -m 'work signing preflight' \
 	&& test "$(git config --get user.email)" = "$(git config -f ~/.config/git/config-work --get user.email)" \
 	&& test "$(git log -1 --pretty='%G?')" = G \
@@ -517,7 +517,7 @@ The probe repo is moved, not deleted.
 - [ ] **Step 7: Verify gh and ghostty need no interaction**
 
 ```sh
-. ~/Backups/consus-migration.env
+. ~/Backups/dotconfigs-migration.env
 gh auth status 2>&1 | grep -q 'Logged in to github.com'
 gh api rate_limit --jq '.resources.core.remaining' | grep -qE '^[0-9]+$'
 gh repo view LRNZ09/dotgit --json viewerCanAdminister --jq .viewerCanAdminister | grep -qx true
@@ -560,7 +560,7 @@ mechanism.
 - [ ] **Step 1: Remove the two plugins**
 
 ```sh
-. ~/Backups/consus-migration.env
+. ~/Backups/dotconfigs-migration.env
 # < /dev/null is not decoration: fisher's install/update/remove case begins
 # `isatty || read --local --null --array stdin`, so with stdin on an idle pipe
 # — a plausible runner shape — it blocks forever before removing anything.
@@ -646,7 +646,7 @@ files.
 - [ ] **Step 1: Write all four files**
 
 ```sh
-. ~/Backups/consus-migration.env
+. ~/Backups/dotconfigs-migration.env
 F=~/.config/fish
 
 cat > "$F/config.fish" <<'EOF'
@@ -708,7 +708,7 @@ EOF
 - [ ] **Step 2: Syntax-check every file before trusting the behaviour checks**
 
 ```sh
-. ~/Backups/consus-migration.env
+. ~/Backups/dotconfigs-migration.env
 F=$HOME/.config/fish
 for f in "$F/config.fish" "$F/conf.d/rustup.fish" "$F/conf.d/android.fish" \
 	"$F/conf.d/proto.fish"; do
@@ -722,7 +722,7 @@ would otherwise show up as a mysterious behaviour change three steps later.
 - [ ] **Step 3: Assert behaviour on this machine is unchanged**
 
 ```sh
-. ~/Backups/consus-migration.env
+. ~/Backups/dotconfigs-migration.env
 F=$HOME/.config/fish
 test "$(fish -c 'abbr | count' 2>/dev/null)" -eq 169
 test "$(fish -c 'functions | count' 2>/dev/null)" -eq 108
@@ -759,25 +759,26 @@ directions.
 **Files:**
 
 - Modify: `~/.config/git/config` — `credential.helper`
-- Commit: `docs/superpowers/plans/2026-08-21-consus-migration.md` (this plan),
-  the design document (its amendments), `.markdownlint.jsonc` and `README.md`
+- Commit: `docs/superpowers/plans/2026-08-21-dotconfigs-migration.md` (this
+  plan), the design document (its amendments), `.markdownlint.jsonc` and
+  `README.md`
 
 **Interfaces:**
 
 - Consumes: Task 0's state file.
-- Produces: `origin` = `https://github.com/LRNZ09/consus.git` with everything
-  pushed and CI green, and `BASELINE_COMMITS` in the state file — the number
-  Task 11's history gate asserts against.
+- Produces: `origin` = `https://github.com/LRNZ09/dotconfigs.git` with
+  everything pushed and CI green, and `BASELINE_COMMITS` in the state file —
+  the number Task 11's history gate asserts against.
 
 - [ ] **Step 1: Rename the repo and repoint the remote, in one chain**
 
 ```sh
-. ~/Backups/consus-migration.env
+. ~/Backups/dotconfigs-migration.env
 cd ~/.config/git
-gh repo rename consus -R LRNZ09/dotgit --yes \
-	&& gh repo view LRNZ09/consus --json name --jq .name | grep -qx consus \
-	&& git remote set-url origin https://github.com/LRNZ09/consus.git
-git remote get-url origin | grep -qx 'https://github.com/LRNZ09/consus.git'
+gh repo rename dotconfigs -R LRNZ09/dotgit --yes \
+	&& gh repo view LRNZ09/dotconfigs --json name --jq .name | grep -qx dotconfigs \
+	&& git remote set-url origin https://github.com/LRNZ09/dotconfigs.git
+git remote get-url origin | grep -qx 'https://github.com/LRNZ09/dotconfigs.git'
 ```
 
 `--yes` skips the confirmation prompt. The `&&` chain matters: repointing
@@ -830,11 +831,11 @@ The other two are unchanged — both spellings reach the same binary.
 - [ ] **Step 4: Commit the documents and the config edit**
 
 ```sh
-. ~/Backups/consus-migration.env
+. ~/Backups/dotconfigs-migration.env
 cd ~/.config/git
-git add docs/superpowers/plans/2026-08-21-consus-migration.md \
-	docs/superpowers/specs/2026-08-21-consus-migration-design.md .markdownlint.jsonc README.md
-git commit -m "Add the consus migration plan, and the spec amendments it needs"
+git add docs/superpowers/plans/2026-08-21-dotconfigs-migration.md \
+	docs/superpowers/specs/2026-08-21-dotconfigs-migration-design.md .markdownlint.jsonc README.md
+git commit -m "Add the dotconfigs migration plan, and the spec amendments it needs"
 git add config
 git commit -m "Resolve credential-manager helper through PATH"
 test -z "$(git status --porcelain)"
@@ -847,7 +848,7 @@ permits by design.
 - [ ] **Step 5: Push, and gate on CI rather than eyeballing it**
 
 ```sh
-. ~/Backups/consus-migration.env
+. ~/Backups/dotconfigs-migration.env
 cd ~/.config/git
 git push
 ci_green "$(git rev-parse HEAD)"
@@ -860,11 +861,11 @@ other than success — unlike `gh run list`, which exits 0 whatever happened.
 - [ ] **Step 6: Record the baseline in the state file**
 
 ```sh
-. ~/Backups/consus-migration.env
+. ~/Backups/dotconfigs-migration.env
 cd ~/.config/git
 printf 'BASELINE_COMMITS=%s\n' "$(git rev-list --count HEAD)" \
-	>> ~/Backups/consus-migration.env
-. ~/Backups/consus-migration.env
+	>> ~/Backups/dotconfigs-migration.env
+. ~/Backups/dotconfigs-migration.env
 test "$BASELINE_COMMITS" -ge 8
 git ls-files | wc -l | tr -d ' '
 ```
@@ -885,7 +886,7 @@ working, pushed checkout — which is what makes it the rollback.
 
 **Files:**
 
-- Create: `~/Developer/LRNZ09/consus/` (the clone)
+- Create: `~/Developer/LRNZ09/dotconfigs/` (the clone)
 - Move: `config`, `config-local.example`, `config-work.example`, `README.md`,
   `.gitignore` → `configs/git/`
 - Modify: `configs/git/README.md` (rewritten — the Setup section no longer
@@ -895,7 +896,7 @@ working, pushed checkout — which is what makes it the rollback.
 **Interfaces:**
 
 - Consumes: `BASELINE_COMMITS` and `CLONE` from the state file, and the pushed
-  `consus` remote.
+  `dotconfigs` remote.
 - Produces: the clone at `$CLONE` with 5 files under `configs/git/`, and `git
   log --follow -- configs/git/config` reaching through the rename. Task 5 adds
   the sixth file.
@@ -903,8 +904,8 @@ working, pushed checkout — which is what makes it the rollback.
 - [ ] **Step 1: Clone, and assert the history came with it**
 
 ```sh
-. ~/Backups/consus-migration.env
-git clone https://github.com/LRNZ09/consus.git "$CLONE"
+. ~/Backups/dotconfigs-migration.env
+git clone https://github.com/LRNZ09/dotconfigs.git "$CLONE"
 cd "$CLONE"
 test "$(git rev-list --count HEAD)" -eq "$BASELINE_COMMITS"
 ```
@@ -912,7 +913,7 @@ test "$(git rev-list --count HEAD)" -eq "$BASELINE_COMMITS"
 - [ ] **Step 2: `mkdir git` first, then one multi-source `git mv`**
 
 ```sh
-. ~/Backups/consus-migration.env
+. ~/Backups/dotconfigs-migration.env
 cd "$CLONE"
 mkdir git
 git mv config config-local.example config-work.example README.md .gitignore configs/git/
@@ -979,7 +980,7 @@ symlink: see the [repo README](../../README.md).
 - [ ] **Step 4: Assert the restructure, then commit**
 
 ```sh
-. ~/Backups/consus-migration.env
+. ~/Backups/dotconfigs-migration.env
 cd "$CLONE"
 test "$(git ls-files configs/git/ | wc -l | tr -d ' ')" -eq 5
 git ls-files | grep -qx 'configs/git/config'
@@ -997,7 +998,7 @@ test -z "$(git status --porcelain)"
 - [ ] **Step 5: Assert the rename did not orphan the history**
 
 ```sh
-. ~/Backups/consus-migration.env
+. ~/Backups/dotconfigs-migration.env
 cd "$CLONE"
 plain=$(git log --oneline -- configs/git/config | wc -l | tr -d ' ')
 follow=$(git log --follow --oneline -- configs/git/config | wc -l | tr -d ' ')
@@ -1034,7 +1035,7 @@ own documented default, so tracking it there needs no configuration at all.
 - [ ] **Step 1: Copy — `cp`, not `mv`**
 
 ```sh
-. ~/Backups/consus-migration.env
+. ~/Backups/dotconfigs-migration.env
 cd "$CLONE"
 cp ~/.gitignore configs/git/ignore
 test -f ~/.gitignore && test -f configs/git/ignore
@@ -1059,7 +1060,7 @@ The `[core]` section becomes:
 - [ ] **Step 3: Assert, then commit**
 
 ```sh
-. ~/Backups/consus-migration.env
+. ~/Backups/dotconfigs-migration.env
 cd "$CLONE"
 test -f configs/git/config
 if grep -q excludesfile configs/git/config; then echo "FAIL: excludesfile survives"; exit 1; fi
@@ -1152,7 +1153,7 @@ alternatives or phases here — duplicating them is how the two documents begin 
 disagree.
 
 `````markdown
-# consus
+# dotconfigs
 
 The configuration this machine's tools actually read. It lives under `configs/`,
 one directory per tool, and each tool finds it at its own default path, which is
@@ -1189,8 +1190,8 @@ binary installed anywhere on this machine; **gh**, whose entire payload is
 
 ```sh
 brew install lefthook gitleaks
-git clone https://github.com/LRNZ09/consus.git ~/Developer/LRNZ09/consus
-cd ~/Developer/LRNZ09/consus
+git clone https://github.com/LRNZ09/dotconfigs.git ~/Developer/LRNZ09/dotconfigs
+cd ~/Developer/LRNZ09/dotconfigs
 ./bin/install            # the two links, the ghostty include, lefthook, chmod 700
 ```
 
@@ -1265,13 +1266,13 @@ The [design document][design] carries the eight mechanisms that were priced,
 the five silent failure modes that killed the runner-up, the destruction
 accounting, and the record of the migration itself.
 
-[design]: docs/superpowers/specs/2026-08-21-consus-migration-design.md
+[design]: docs/superpowers/specs/2026-08-21-dotconfigs-migration-design.md
 `````
 
 - [ ] **Step 4: Commit, then install the hook**
 
 ```sh
-. ~/Backups/consus-migration.env
+. ~/Backups/dotconfigs-migration.env
 cd "$CLONE"
 git add README.md .gitignore lefthook.yml
 git commit -m "Add the root README, the fish allow-list and lefthook"
@@ -1292,7 +1293,7 @@ The finding is built from a split string so that this plan document does not
 itself contain an email address its own hook would reject:
 
 ```sh
-. ~/Backups/consus-migration.env
+. ~/Backups/dotconfigs-migration.env
 cd "$CLONE"
 printf 'contact = leak@%s\n' example.com > leaktest.txt
 git add leaktest.txt
@@ -1332,7 +1333,7 @@ artefact.
 - [ ] **Step 1: Copy the fish directory whole**
 
 ```sh
-. ~/Backups/consus-migration.env
+. ~/Backups/dotconfigs-migration.env
 cd "$CLONE"
 cp -R ~/.config/fish configs/fish
 test "$(find configs/fish ! -type d | wc -l | tr -d ' ')" -eq 97
@@ -1350,9 +1351,9 @@ ignored, and a clone should not carry them.
 - [ ] **Step 2: Assert the allow-list stages exactly six files**
 
 ```sh
-. ~/Backups/consus-migration.env
+. ~/Backups/dotconfigs-migration.env
 cd "$CLONE"
-. ~/Backups/consus-migration.env
+. ~/Backups/dotconfigs-migration.env
 git add configs/fish
 test "$(git diff --cached --name-only | wc -l | tr -d ' ')" -eq 6
 git diff --cached --name-only | sort > "$SP"/staged
@@ -1369,7 +1370,7 @@ configs/fish/fish_variables` names the rule that should have caught it.
 - [ ] **Step 3: Commit the fish record**
 
 ```sh
-. ~/Backups/consus-migration.env
+. ~/Backups/dotconfigs-migration.env
 cd "$CLONE"
 git commit -m "Track the hand-written fish configuration"
 test "$(git ls-files configs/fish | wc -l | tr -d ' ')" -eq 6
@@ -1403,7 +1404,7 @@ has no pin — and the merge rule is what resolves it.
 - [ ] **Step 5: Assert and commit the pins**
 
 ```sh
-. ~/Backups/consus-migration.env
+. ~/Backups/dotconfigs-migration.env
 cd "$CLONE"
 test "$(wc -l < configs/fish/fish_plugins | tr -d ' ')" -eq 4
 grep -qx 'jhillyerd/plugin-git@v0.4' configs/fish/fish_plugins
@@ -1434,7 +1435,7 @@ config-file = ?~/.config/ghostty/local.ghostty
 - [ ] **Step 7: Assert, commit, and confirm the tree is clean**
 
 ```sh
-. ~/Backups/consus-migration.env
+. ~/Backups/dotconfigs-migration.env
 cd "$CLONE"
 mkdir -p ghostty
 grep -qx 'macos-titlebar-style = tabs' configs/ghostty/config.ghostty
@@ -1485,7 +1486,7 @@ kinds of drift that actually happen. Nothing under `~/.config` is written by it.
 # Builds a throwaway sandbox that mimics this clone plus a drifted machine, so
 # bin/install and bin/doctor can be exercised without touching a real path.
 #
-#   REPO — the consus clone to test (its bin/ scripts are the ones exercised)
+#   REPO — the dotconfigs clone to test (its bin/ scripts are the ones exercised)
 #   SB   — the sandbox directory; wiped and rebuilt on every run
 #   FISH_SRC, GIT_SRC — default to the machine's real trees; override to point the
 #            harness at a simulated tree instead
@@ -1496,7 +1497,7 @@ kinds of drift that actually happen. Nothing under `~/.config` is written by it.
 #            three kinds of drift that actually happen
 # $SB/xdg2   a second, untouched drifted copy, for the no-TTY assertion
 set -eu
-REPO="${REPO:?set REPO to the consus clone}"
+REPO="${REPO:?set REPO to the dotconfigs clone}"
 SB="${SB:?set SB to a scratch directory}"
 
 rm -rf "$SB"
@@ -1535,10 +1536,10 @@ git -c core.hooksPath=/dev/null commit -q --no-gpg-sign -m 'fixture'
 echo "fixture ready at $SB — $(git ls-files | wc -l | tr -d ' ') tracked files, $(git ls-files configs/fish | wc -l | tr -d ' ') under configs/fish/"
 ```
 
-`$SB` is under `$SP`, which Task 0 created as `~/Backups/consus-sandbox` with
-mode 700 — **not** under `/tmp`. The fixture copies `~/.config/git` wholesale,
-which means `config-local`, `config-work` and the mode-700 `.remember/`, so a
-world-readable sandbox would leak all three.
+`$SB` is under `$SP`, which Task 0 created as `~/Backups/dotconfigs-sandbox`
+with mode 700 — **not** under `/tmp`. The fixture copies `~/.config/git`
+wholesale, which means `config-local`, `config-work` and the mode-700
+`.remember/`, so a world-readable sandbox would leak all three.
 
 - [ ] **Step 2: Write the install suite**
 
@@ -1554,7 +1555,7 @@ SP="${SP:?set SP to the scratch directory}"; SB="$SP/sb"
 pass=0; fail=0
 check() { if eval "$2" >/dev/null 2>&1; then pass=$((pass+1)); echo "PASS  $1"; else fail=$((fail+1)); echo "FAIL  $1"; fi; }
 
-SB="$SB" REPO="${REPO:?set REPO to the consus clone}" sh "$SP/work/mkfixture.sh" >/dev/null 2>&1 || { echo "fixture build failed"; exit 1; }
+SB="$SB" REPO="${REPO:?set REPO to the dotconfigs clone}" sh "$SP/work/mkfixture.sh" >/dev/null 2>&1 || { echo "fixture build failed"; exit 1; }
 cd "$SB/repo" || exit 1
 
 check "install parses under sh"            'sh -n bin/install'
@@ -1574,7 +1575,7 @@ check "  diff hid ignored fish files"      '! grep -qE "^  differ: .*(fish_varia
 check "  git diff named .githooks"         'grep -q "only on machine: .githooks/pre-commit" "$SB/ni.log"'
 check "  git diff named .github"           'grep -q "only on machine: .github/workflows/gitleaks.yml" "$SB/ni.log"'
 check "  git diff named .gitleaks.toml"    'grep -q "only on machine: .gitleaks.toml" "$SB/ni.log"'
-check "  git diff named docs/"             'grep -q "only on machine: docs/superpowers/specs/2026-08-21-consus-migration-design.md" "$SB/ni.log"'
+check "  git diff named docs/"             'grep -q "only on machine: docs/superpowers/specs/2026-08-21-dotconfigs-migration-design.md" "$SB/ni.log"'
 check "  git diff excluded .git/"          '! grep -qE "^  (differ|only[^:]*): +\.git/" "$SB/ni.log"'
 check "  git diff excluded config-local"   '! grep -qE "config-local$" "$SB/ni.log"'
 
@@ -1605,7 +1606,7 @@ check "  reports the stub already right"   'grep -q "already includes this clone
 check "  wrote no new backup entries"      '[ "$(ls "$SB/backup" | wc -l | tr -d " ")" -eq 2 ]'
 
 # --- a wrong link self-heals, even without a TTY --------------------------
-unlink "$SB/xdg/fish"; ln -s /tmp/nowhere-consus "$SB/xdg/fish"
+unlink "$SB/xdg/fish"; ln -s /tmp/nowhere-dotconfigs "$SB/xdg/fish"
 XDG_CONFIG_HOME="$SB/xdg" ./bin/install --non-interactive --backup-dir "$SB/backup3" >"$SB/i3.log" 2>&1
 i3_rc=$?
 check "a wrong link is relinked, rc 0"     '[ "$i3_rc" -eq 0 ]'
@@ -1614,12 +1615,12 @@ check "  the old link moved to backup3"    '[ -L "$SB/backup3/fish" ]'
 check "  its target was untouched"         '[ -f "$SB/repo/configs/fish/config.fish" ]'
 
 # --- an occupied backup slot is refused ----------------------------------
-unlink "$SB/xdg/fish"; ln -s /tmp/nowhere-consus "$SB/xdg/fish"
+unlink "$SB/xdg/fish"; ln -s /tmp/nowhere-dotconfigs "$SB/xdg/fish"
 XDG_CONFIG_HOME="$SB/xdg" ./bin/install --non-interactive --backup-dir "$SB/backup3" >"$SB/i4.log" 2>&1
 i4_rc=$?
 check "an occupied slot exits 1"           '[ "$i4_rc" -eq 1 ]'
 check "  says the slot is occupied"        'grep -q "already occupied" "$SB/i4.log"'
-check "  leaves the wrong link alone"      '[ "$(readlink "$SB/xdg/fish")" = "/tmp/nowhere-consus" ]'
+check "  leaves the wrong link alone"      '[ "$(readlink "$SB/xdg/fish")" = "/tmp/nowhere-dotconfigs" ]'
 unlink "$SB/xdg/fish"; ln -s "$SB/repo/configs/fish" "$SB/xdg/fish"
 
 # --- an empty config home -------------------------------------------------
@@ -1817,7 +1818,7 @@ own header contains the string `.git/` in its explanatory text.
 - [ ] **Step 3: Run the suite and watch it fail**
 
 ```sh
-. ~/Backups/consus-migration.env
+. ~/Backups/dotconfigs-migration.env
 SP="$SP" REPO="$CLONE" sh "$SP/work/tests-install.sh"
 ```
 
@@ -1828,7 +1829,7 @@ because `bin/install` does not exist yet.
 
 ```sh
 #!/bin/sh
-# consus/bin/install — point each tool's own default path at this clone.
+# dotconfigs/bin/install — point each tool's own default path at this clone.
 #
 #   $XDG_CONFIG_HOME/fish                    -> <repo>/configs/fish  (symlink)
 #   $XDG_CONFIG_HOME/ghostty/config.ghostty                  (one-line include)
@@ -2223,7 +2224,7 @@ classify_stub() {
 	plan_result=write
 }
 
-echo "consus install"
+echo "dotconfigs install"
 echo "  repo:        $repo"
 echo "  record:      $record"
 echo "  config home: $config_home"
@@ -2415,14 +2416,14 @@ The parts that are load-bearing rather than stylistic:
 - **`lefthook install` runs in a subshell that cds to the repo.** Measured: a
   bare call resolves its config from the caller's CWD, so from an unrelated git
   repo it creates a `lefthook.yml` *there*, installs hooks *there*, exits 0, and
-  then this script prints a success line naming the consus clone. Outside a repo
-  it exits 128, which with `set -eu` and `>/dev/null` would kill the script
-  silently after the links were already made.
+  then this script prints a success line naming the dotconfigs clone. Outside a
+  repo it exits 128, which with `set -eu` and `>/dev/null` would kill the
+  script silently after the links were already made.
 
 - [ ] **Step 5: Make it executable on disk, then run the suite green**
 
 ```sh
-. ~/Backups/consus-migration.env
+. ~/Backups/dotconfigs-migration.env
 chmod +x bin/install
 SP="$SP" REPO="$CLONE" sh "$SP/work/tests-install.sh"
 ```
@@ -2436,7 +2437,7 @@ Expected last line: `115 passed, 0 failed`.
 - [ ] **Step 6: Commit**
 
 ```sh
-. ~/Backups/consus-migration.env
+. ~/Backups/dotconfigs-migration.env
 cd "$CLONE"
 git add bin/install
 git ls-files -s bin/install | grep -q '^100755'
@@ -2483,7 +2484,7 @@ SP="${SP:?set SP to the scratch directory}"; SB="$SP/sb"
 pass=0; fail=0
 check() { if eval "$2" >/dev/null 2>&1; then pass=$((pass+1)); echo "PASS  $1"; else fail=$((fail+1)); echo "FAIL  $1"; fi; }
 
-SB="$SB" REPO="${REPO:?set REPO to the consus clone}" sh "$SP/work/mkfixture.sh" >/dev/null 2>&1 || { echo "fixture build failed"; exit 1; }
+SB="$SB" REPO="${REPO:?set REPO to the dotconfigs clone}" sh "$SP/work/mkfixture.sh" >/dev/null 2>&1 || { echo "fixture build failed"; exit 1; }
 cd "$SB/repo" || exit 1
 
 check "doctor exists and parses under sh"  'sh -n bin/doctor'
@@ -2519,10 +2520,10 @@ check "declaration is pinned"              'grep -qx "jhillyerd/plugin-git@v0.4"
 check "  a pinned declaration still passes" 'XDG_CONFIG_HOME="$SB/xdg" ./bin/doctor 2>&1 | grep -q "every plugin in configs/fish/fish_plugins is installed"'
 
 # A wrong link is named, not merely a missing one.
-unlink "$SB/xdg/fish"; ln -s /tmp/nowhere-consus "$SB/xdg/fish"
+unlink "$SB/xdg/fish"; ln -s /tmp/nowhere-dotconfigs "$SB/xdg/fish"
 rc=0; XDG_CONFIG_HOME="$SB/xdg" ./bin/doctor >"$SB/d2.log" 2>&1 || rc=$?
 check "a wrong link fails, rc 1"           '[ "$rc" -eq 1 ]'
-check "  prints the actual target"         'grep -q "nowhere-consus" "$SB/d2.log"'
+check "  prints the actual target"         'grep -q "nowhere-dotconfigs" "$SB/d2.log"'
 
 # The severed-link case must not plant a directory: fish creates
 # $XDG_CONFIG_HOME/fish when it is missing, and a read-only probe must not.
@@ -2557,7 +2558,7 @@ echo; echo "$pass passed, $fail failed"; [ "$fail" -eq 0 ]
 - [ ] **Step 2: Run it and watch it fail**
 
 ```sh
-. ~/Backups/consus-migration.env
+. ~/Backups/dotconfigs-migration.env
 SP="$SP" REPO="$CLONE" sh "$SP/work/tests-doctor.sh"
 ```
 
@@ -2568,7 +2569,7 @@ it.
 
 ```sh
 #!/bin/sh
-# consus/bin/doctor — read-only. Exits 0 when this machine matches the record,
+# dotconfigs/bin/doctor — read-only. Exits 0 when this machine matches the record,
 # non-zero when it does not, and touches nothing either way.
 #
 # Link integrity is the one invariant git cannot express: the repo can be
@@ -2588,7 +2589,7 @@ fish_link_ok=0
 present=$(mktemp); classified=$(mktemp); unclassified=$(mktemp)
 trap 'rm -f "$present" "$classified" "$unclassified"' EXIT
 
-echo "consus doctor"
+echo "dotconfigs doctor"
 echo "  repo:        $repo"
 echo "  record:      $record"
 echo "  config home: $config_home"
@@ -2791,7 +2792,7 @@ files on disk.
 - [ ] **Step 4: Make it executable, then run both suites green**
 
 ```sh
-. ~/Backups/consus-migration.env
+. ~/Backups/dotconfigs-migration.env
 chmod +x bin/doctor
 SP="$SP" REPO="$CLONE" sh "$SP/work/tests-doctor.sh"    # 24 passed, 0 failed
 SP="$SP" REPO="$CLONE" sh "$SP/work/tests-install.sh"   # 115 passed, 0 failed
@@ -2800,7 +2801,7 @@ SP="$SP" REPO="$CLONE" sh "$SP/work/tests-install.sh"   # 115 passed, 0 failed
 - [ ] **Step 5: Confirm doctor is read-only against the real machine**
 
 ```sh
-. ~/Backups/consus-migration.env
+. ~/Backups/dotconfigs-migration.env
 cd "$CLONE"
 rc=0; ./bin/doctor >/dev/null 2>&1 || rc=$?
 test "$rc" -eq 1
@@ -2815,7 +2816,7 @@ with rc 1, and touches nothing while doing it — in particular it does not crea
 - [ ] **Step 6: Commit**
 
 ```sh
-. ~/Backups/consus-migration.env
+. ~/Backups/dotconfigs-migration.env
 cd "$CLONE"
 git add bin/doctor
 git ls-files -s bin/doctor | grep -q '^100755'
@@ -2841,7 +2842,7 @@ because a digest that no longer matches refuses.
 **Files:**
 
 - Create (scratch, **not committed**): `$SP/work/rehearse.sh`
-- Create: `~/Backups/consus-rehearsal-<timestamp>/{xdg,xdg2,backup}` and its
+- Create: `~/Backups/dotconfigs-rehearsal-<timestamp>/{xdg,xdg2,backup}` and its
   logs
 - Temporarily modify: `configs/fish/config.fish`, `configs/fish/fish_plugins`,
   `configs/fish/functions/drifted.fish` in the clone — all restored by the
@@ -2860,7 +2861,7 @@ real trees; they exist so the script could be verified against a simulated
 post-Task-1 tree while this plan was written.
 
 ```sh
-. ~/Backups/consus-migration.env
+. ~/Backups/dotconfigs-migration.env
 #!/bin/sh
 # rehearse.sh — Task 10. Rehearses bin/install against a drifted machine with
 # nobody at the keyboard. Two passes — review, which prints both diffs and a
@@ -2868,12 +2869,12 @@ post-Task-1 tree while this plan was written.
 # resolutions and quotes back the digest of the diff the review pass printed.
 # Every assertion is mechanical: an unattended run cannot eyeball a diff.
 set -eu
-CLONE="${CLONE:?set CLONE to the consus clone}"
+CLONE="${CLONE:?set CLONE to the dotconfigs clone}"
 RROOT="${RROOT:?set RROOT to where the rehearsal directory goes}"
 
 cd "$CLONE"
 REPO_P=$(pwd -P)
-R="$RROOT/consus-rehearsal-$(date +%Y%m%dT%H%M%S)"
+R="$RROOT/dotconfigs-rehearsal-$(date +%Y%m%dT%H%M%S)"
 mkdir -p "$R/xdg" "$R/xdg2"
 echo "rehearsal: $R"
 
@@ -2903,7 +2904,7 @@ check "  fish diff hid the ignored files"    '! grep -qE "^  (differ|only[^:]*):
 check "  git diff: .githooks/pre-commit"     'grep -qF "only on machine: .githooks/pre-commit" "$R/review.log"'
 check "  git diff: .github workflow"         'grep -qF "only on machine: .github/workflows/gitleaks.yml" "$R/review.log"'
 check "  git diff: .gitleaks.toml"           'grep -qF "only on machine: .gitleaks.toml" "$R/review.log"'
-check "  git diff: the design document"  'grep -qF "only on machine: docs/superpowers/specs/2026-08-21-consus-migration-design.md" "$R/review.log"'
+check "  git diff: the design document"  'grep -qF "only on machine: docs/superpowers/specs/2026-08-21-dotconfigs-migration-design.md" "$R/review.log"'
 check "  git diff excluded .git/"            '! grep -qE "^  (differ|only[^:]*): +\.git/" "$R/review.log"'
 check "  git diff excluded the identities"   '! grep -qE "^  (differ|only[^:]*): +config-(local|work)$" "$R/review.log"'
 check "  printed a digest for fish"          'grep -qE "end of diff, digest fish=[0-9a-f]{12}" "$R/review.log"'
@@ -2988,7 +2989,7 @@ echo; echo "$p passed, $f failed"; echo "logs: $R"; [ "$f" -eq 0 ]
 - [ ] **Step 2: Run it**
 
 ```sh
-. ~/Backups/consus-migration.env
+. ~/Backups/dotconfigs-migration.env
 mkdir -p ~/Backups
 # Not piped through tee: a pipeline reports tee's status, so the script's own
 # verdict — its closing [ "$f" -eq 0 ] — would be discarded.
@@ -3006,10 +3007,10 @@ of those 50.
 - [ ] **Step 3: Record the rehearsal directory, and confirm the clone is clean**
 
 ```sh
-. ~/Backups/consus-migration.env
+. ~/Backups/dotconfigs-migration.env
 printf 'R=%s\n' "$(sed -n 's/^logs: //p' "$SP/rehearse.out" | tail -1)" \
-	>> ~/Backups/consus-migration.env
-. ~/Backups/consus-migration.env
+	>> ~/Backups/dotconfigs-migration.env
+. ~/Backups/dotconfigs-migration.env
 test -d "$R"
 cd "$CLONE" && test -z "$(git status --porcelain)"
 grep -qx 'halostatue/fish-macos@v7' configs/fish/fish_plugins
@@ -3039,7 +3040,7 @@ than observations, because two of them pass by *exiting non-zero*.
 - [ ] **Step 1: Run the gate**
 
 ```sh
-. ~/Backups/consus-migration.env
+. ~/Backups/dotconfigs-migration.env
 cd "$CLONE"
 test -n "$BASELINE_COMMITS"
 
@@ -3057,11 +3058,11 @@ test "$(git log --follow --oneline -- configs/git/config | wc -l)" -gt "$(git lo
 test -x bin/install && test -x bin/doctor                            # modes are on disk
 sh -n bin/install && sh -n bin/doctor                                # both parse
 rc=0; ./bin/doctor >/dev/null 2>&1 || rc=$?; test "$rc" -eq 1        # fails the link check, not 126
-for f in README.md configs/git/README.md docs/superpowers/specs/2026-08-21-consus-migration-design.md \
-	docs/superpowers/plans/2026-08-21-consus-migration.md; do
+for f in README.md configs/git/README.md docs/superpowers/specs/2026-08-21-dotconfigs-migration-design.md \
+	docs/superpowers/plans/2026-08-21-dotconfigs-migration.md; do
 	test -f "$f" || { echo "FAIL: $f is missing"; exit 1; }
 done
-markdownlint-cli2 README.md configs/git/README.md docs/superpowers/specs/2026-08-21-consus-migration-design.md \
+markdownlint-cli2 README.md configs/git/README.md docs/superpowers/specs/2026-08-21-dotconfigs-migration-design.md \
 	docs/superpowers/plans/*.md >/dev/null
 ```
 
@@ -3078,7 +3079,7 @@ either count.
 - [ ] **Step 2: Push with an upstream, and gate on CI**
 
 ```sh
-. ~/Backups/consus-migration.env
+. ~/Backups/dotconfigs-migration.env
 cd "$CLONE"
 git push -u origin main
 git rev-parse --abbrev-ref '@{u}' | grep -qx 'origin/main'
@@ -3113,11 +3114,11 @@ Backblaze installed.
 - [ ] **Step 1: Archive `~/.config` whole, with no exclusions**
 
 ```sh
-. ~/Backups/consus-migration.env
+. ~/Backups/dotconfigs-migration.env
 mkdir -p ~/Backups
 chmod 700 ~/Backups
 ARCHIVE=~/Backups/config-backup-$(date +%F).tar.gz
-printf 'ARCHIVE=%s\n' "$ARCHIVE" >> ~/Backups/consus-migration.env
+printf 'ARCHIVE=%s\n' "$ARCHIVE" >> ~/Backups/dotconfigs-migration.env
 tar czf "$ARCHIVE" -C ~ .config
 ```
 
@@ -3135,7 +3136,7 @@ complete archive is 22 MB against roughly 7.5 MB pruned. The exclusions bought
 - [ ] **Step 2: Verify the archive before going further**
 
 ```sh
-. ~/Backups/consus-migration.env
+. ~/Backups/dotconfigs-migration.env
 test -s "$ARCHIVE"
 tar tzf "$ARCHIVE" >/dev/null
 test "$(tar tzf "$ARCHIVE" | wc -l | tr -d ' ')" -gt 1000
@@ -3184,7 +3185,7 @@ was verified against a redirected `XDG_CONFIG_HOME` while the plan was written;
 leave it unset for the real run.
 
 ```sh
-. ~/Backups/consus-migration.env
+. ~/Backups/dotconfigs-migration.env
 #!/bin/sh
 # activate.sh — Task 13. Activates this machine with nobody at the keyboard.
 #
@@ -3198,7 +3199,7 @@ leave it unset for the real run.
 # the fish digest the review pass printed. If the machine drifts between the two
 # passes, the digest no longer matches and the apply pass refuses.
 set -eu
-CLONE="${CLONE:?set CLONE to the consus clone}"
+CLONE="${CLONE:?set CLONE to the dotconfigs clone}"
 BKROOT="${BKROOT:?set BKROOT to where the migration backup goes}"
 STATE="${STATE:?set STATE to the migration state file}"
 CFG="${XDG_CONFIG_HOME:-$HOME/.config}"
@@ -3225,7 +3226,7 @@ gate "lefthook is installed"                 'command -v lefthook'
 gate "gitleaks is installed"                 'command -v gitleaks'
 gate "doctor fails before activation"        'rc=0; ./bin/doctor >/dev/null 2>&1 || rc=$?; [ "$rc" -eq 1 ]'
 
-BK="$BKROOT/consus-migration-$(date +%Y%m%dT%H%M%S)"
+BK="$BKROOT/dotconfigs-migration-$(date +%Y%m%dT%H%M%S)"
 mkdir -p "$BK"
 printf 'BK=%s\n' "$BK" >> "$STATE"
 echo "migration backup: $BK  (recorded in $STATE)"
@@ -3313,8 +3314,8 @@ echo; echo "$p passed, $f failed"; echo "logs: $BK"; [ "$f" -eq 0 ]
 - [ ] **Step 2: Run it**
 
 ```sh
-. ~/Backups/consus-migration.env
-CLONE="$CLONE" BKROOT="$HOME/Backups" STATE="$HOME/Backups/consus-migration.env" \
+. ~/Backups/dotconfigs-migration.env
+CLONE="$CLONE" BKROOT="$HOME/Backups" STATE="$HOME/Backups/dotconfigs-migration.env" \
 	sh "$SP/work/activate.sh" > "$SP/activate.out" 2>&1; rc=$?
 cat "$SP/activate.out"
 test "$rc" -eq 0
@@ -3334,7 +3335,7 @@ right.
 - [ ] **Step 3: Push, now that the queue is empty**
 
 ```sh
-. ~/Backups/consus-migration.env
+. ~/Backups/dotconfigs-migration.env
 cd "$CLONE"
 test -z "$(git status --porcelain)"
 if git log --oneline @{u}.. | grep -q .; then
@@ -3349,7 +3350,7 @@ fi
       needs**
 
 ```sh
-. ~/Backups/consus-migration.env
+. ~/Backups/dotconfigs-migration.env
 test "$(readlink ~/.config/git)" = "$CLONE/configs/git"
 test "$(readlink ~/.config/fish)" = "$CLONE/configs/fish"
 test "$(cat ~/.config/ghostty/config.ghostty)" = "config-file = $CLONE/configs/ghostty/config.ghostty"
@@ -3385,7 +3386,7 @@ by design.
 - [ ] **Step 1: The record matches the machine**
 
 ```sh
-. ~/Backups/consus-migration.env
+. ~/Backups/dotconfigs-migration.env
 cd "$CLONE"
 ./bin/doctor
 test -z "$(git status --porcelain)"
@@ -3399,7 +3400,7 @@ compares its output instead.
 - [ ] **Step 2: git reads the repo, and identity resolves through it**
 
 ```sh
-. ~/Backups/consus-migration.env
+. ~/Backups/dotconfigs-migration.env
 cd "$CLONE"
 git config --list --show-origin | grep -q "^file:$HOME/.config/git/config"
 git config --show-origin --get user.signingkey | grep -q "^file:$HOME/.config/git/config-local"
@@ -3418,13 +3419,13 @@ a false negative gets recorded.
 - [ ] **Step 3: Signing works, which is not the same as a key resolving**
 
 ```sh
-. ~/Backups/consus-migration.env
+. ~/Backups/dotconfigs-migration.env
 D=$(mktemp -d)
 ( cd "$D" && git init -q . && git commit -q --allow-empty -m t \
 	&& test "$(git log -1 --pretty='%G?')" = G \
 	&& echo 'personal signing ok' ) || { echo 'FAIL: personal signing'; exit 1; }
 
-W2=$(mktemp -d ~/Developer/work/consus-verify-XXXX)
+W2=$(mktemp -d ~/Developer/work/dotconfigs-verify-XXXX)
 ( cd "$W2" && git init -q . && git commit -q --allow-empty -m t \
 	&& test "$(git log -1 --pretty='%G?')" = G \
 	&& test "$(git log -1 --pretty='%GK')" \
@@ -3441,7 +3442,7 @@ matches the `includeIf` pattern, and says nothing about it.
 - [ ] **Step 4: fish and ghostty read the repo**
 
 ```sh
-. ~/Backups/consus-migration.env
+. ~/Backups/dotconfigs-migration.env
 test "$(fish -c 'abbr | count' 2>/dev/null)" -eq 169
 test "$(fish -c 'functions | count' 2>/dev/null)" -eq 108
 test "$(fish -c 'echo $__fish_config_dir' 2>/dev/null)" = "$HOME/.config/fish"
@@ -3458,7 +3459,7 @@ configured.
 - [ ] **Step 5: The link is live, and `~/.config` is still not a repo**
 
 ```sh
-. ~/Backups/consus-migration.env
+. ~/Backups/dotconfigs-migration.env
 test "$(cd ~/.config/fish && git rev-parse --show-toplevel)" = "$CLONE"
 if git -C ~/.config rev-parse --git-dir >/dev/null 2>&1; then
 	echo 'FAIL: ~/.config resolved as a git repository'
@@ -3493,7 +3494,7 @@ one.
 public repo rather than a decision.
 
 ```sh
-. ~/Backups/consus-migration.env
+. ~/Backups/dotconfigs-migration.env
 cd "$CLONE"
 cp ~/Developer/LRNZ09/vesta/LICENSE .
 grep -q 'MIT License' LICENSE
@@ -3522,13 +3523,13 @@ and the README is the operational document, so there is no ambiguity about where
 to look.
 
 ```sh
-. ~/Backups/consus-migration.env
+. ~/Backups/dotconfigs-migration.env
 cd "$CLONE"
-grep -q '^\*\*Status:\*\* executed' docs/superpowers/specs/2026-08-21-consus-migration-design.md
-grep -q 'tracks 13 files on purpose' docs/superpowers/specs/2026-08-21-consus-migration-design.md
-if grep -q '7 fish, 6 git' docs/superpowers/specs/2026-08-21-consus-migration-design.md; then echo 'FAIL: stale count'; exit 1; fi
-git add docs/superpowers/specs/2026-08-21-consus-migration-design.md
-git commit -m "Mark the consus design executed"
+grep -q '^\*\*Status:\*\* executed' docs/superpowers/specs/2026-08-21-dotconfigs-migration-design.md
+grep -q 'tracks 13 files on purpose' docs/superpowers/specs/2026-08-21-dotconfigs-migration-design.md
+if grep -q '7 fish, 6 git' docs/superpowers/specs/2026-08-21-dotconfigs-migration-design.md; then echo 'FAIL: stale count'; exit 1; fi
+git add docs/superpowers/specs/2026-08-21-dotconfigs-migration-design.md
+git commit -m "Mark the dotconfigs design executed"
 git push
 ci_green "$(git rev-parse HEAD)"
 ```
@@ -3538,15 +3539,15 @@ ci_green "$(git rev-parse HEAD)"
 `/Users/lorenzo/.claude/memory/reference-git-signing-setup.md` states that the
 global config is "its own version-controlled repo at `~/.config/git/` (XDG
 native: no symlink, no env var, works in GUI clients too)". Under this design
-`~/.config/git` **is** a symlink into `~/Developer/LRNZ09/consus`. Three edits,
-not one:
+`~/.config/git` **is** a symlink into `~/Developer/LRNZ09/dotconfigs`. Three
+edits, not one:
 
 - the layout sentence, which is now wrong;
 - the "if the config is ever symlinked into `$HOME`" gotcha, which is now
   actively misleading — note that the relative-include hazard it describes does
   *not* apply here, because git resolves `include.path` against the directory of
   the file containing it, which through a directory link is the repo;
-- any reference to the repo as `dotgit`, which is now `consus`.
+- any reference to the repo as `dotgit`, which is now `dotconfigs`.
 
 The signing facts in that file — two keys, which one covers `~/Developer/work`,
 the `config-local` / `config-work` split — are all still correct and stay.
@@ -3554,7 +3555,7 @@ the `config-local` / `config-work` split — are all still correct and stay.
 ```sh
 M=/Users/lorenzo/.claude/memory/reference-git-signing-setup.md
 test -f "$M"
-grep -q 'consus' "$M"
+grep -q 'dotconfigs' "$M"
 if grep -q "no symlink" "$M"; then echo "FAIL: the stale layout claim survives"; exit 1; fi
 ```
 
@@ -3572,11 +3573,11 @@ metadata:
   type: reference
 ---
 
-Things a rebuilt machine needs that nothing in [[consus]] restores on its own:
+Things a rebuilt machine needs that nothing in [[dotconfigs]] restores on its own:
 
-- **fisher, before anything else fish-related.** A fresh consus clone has
+- **fisher, before anything else fish-related.** A fresh dotconfigs clone has
   `fish_plugins` and no fisher — fisher's own two files are among the ignored
-  ones. The three-line bootstrap is in the consus README, it needs network, and
+  ones. The three-line bootstrap is in the dotconfigs README, it needs network, and
   `bin/doctor` reports "declared but not installed" until it has run.
 - **gh** is deliberately untracked; its whole payload is
   `gh config set git_protocol https` plus the `co` alias.
@@ -3612,7 +3613,7 @@ confirmed, but nothing in this plan deletes them. Discard them when you want to,
 however you prefer to discard things. `$ARCHIVE` is the one to keep: for every
 untracked tool under `~/.config`, it is the only copy that exists.
 
-The state file `~/Backups/consus-migration.env` is worth keeping until the
+The state file `~/Backups/dotconfigs-migration.env` is worth keeping until the
 backups are gone, because the rollback section reads `BK` and `ARCHIVE` from it.
 
 - [ ] **Step 7: Hand off to `sancus`**
@@ -3621,8 +3622,8 @@ The prerequisite is now satisfied: a plain clone at a real path, with an
 upstream, an idempotent `bin/install` that refuses without a TTY unless the
 decision was declared, and a read-only `bin/doctor` probe. The `sancus` spec
 (`docs/superpowers/specs/2026-08-20-sancus-design.md` in `LRNZ09/sancus`) still
-describes the superseded shape — a `consus → ~/.config` graft, satellites
-"cloned to their real paths with no symlink layer", and "adding a
+describes the superseded shape — a `dotconfigs → ~/.config` graft,
+satellites "cloned to their real paths with no symlink layer", and "adding a
 newly-configured tool is a gitignore line". All three were replaced. Those
 sections need **rewriting against the contract in "What this repo guarantees a
 provisioner", not patching**: eight bullet edits applied to an architecture
@@ -3650,14 +3651,14 @@ writes straight through them into the repo's working tree.** Moving a link moves
 the link itself and never touches its target; measured.
 
 ```sh
-. ~/Backups/consus-migration.env
+. ~/Backups/dotconfigs-migration.env
 : "${BK:?the state file has no BK — see the paragraph below}"
 test -d "$BK/git" \
 	&& test -d "$BK/fish" \
 	&& test -f "$BK/gitignore-home" \
 	|| { echo "rollback: $BK is not a complete migration backup"; exit 1; }
 
-B=~/Backups/consus-rollback-$(date +%Y%m%dT%H%M%S); mkdir -p "$B"
+B=~/Backups/dotconfigs-rollback-$(date +%Y%m%dT%H%M%S); mkdir -p "$B"
 mv ~/.config/git ~/.config/fish "$B"/
 mv ~/.config/ghostty/config.ghostty "$B"/
 
@@ -3674,7 +3675,7 @@ test -f ~/.gitignore
 `BK` comes from the state file rather than from a note, which is the whole
 reason the state file exists: this block may run days later, in a shell that
 never saw Task 13. If the state file is gone too,
-`BK=$(ls -d ~/Backups/consus-migration-* | tail -1)` recovers it.
+`BK=$(ls -d ~/Backups/dotconfigs-migration-* | tail -1)` recovers it.
 
 `~/.gitignore` has to come back explicitly, and the tarball **cannot** supply
 it: that archive is rooted at `~/.config` and this file sits one level up. The
@@ -3691,15 +3692,15 @@ that now contains the restructure — so it reports itself behind, and a
 (or removing the remote outright) stops that. Making it a normal tracking clone
 again means reverting the restructure commits on origin first.
 
-If `sancus` has been given a `consus` satellite entry by then, disable it before
-rolling back, or its `./bin/install --non-interactive` will recreate the links
-on the next run.
+If `sancus` has been given a `dotconfigs` satellite entry by then, disable it
+before rolling back, or its `./bin/install --non-interactive` will recreate the
+links on the next run.
 
 If the migration backup is already discarded, the tarball is the fallback for
 the same paths:
 
 ```sh
-. ~/Backups/consus-migration.env
+. ~/Backups/dotconfigs-migration.env
 tar xzf "$ARCHIVE" -C ~ .config/git .config/fish
 ```
 

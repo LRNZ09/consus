@@ -1,8 +1,8 @@
-# proto — bringing the toolchain record into consus
+# proto — bringing the toolchain record into dotconfigs
 
 **Date:** 2026-09-21
 **Status:** designed
-**Amends:** `docs/superpowers/specs/2026-08-21-consus-migration-design.md`,
+**Amends:** `docs/superpowers/specs/2026-08-21-dotconfigs-migration-design.md`,
 whose "Deliberately out of scope" excludes `~/.proto` on the grounds that it
 "keeps its own repo at its real path". That premise is what this change ends,
 so the line is edited rather than supplemented.
@@ -10,8 +10,8 @@ so the line is edited rather than supplemented.
 
 ## What this does
 
-consus takes over proto's global configuration — the `.prototools` that pins
-every toolchain on this machine — and `LRNZ09/dotproto` is archived.
+dotconfigs takes over proto's global configuration — the `.prototools` that
+pins every toolchain on this machine — and `LRNZ09/dotproto` is archived.
 The proto *store* does not move. `PROTO_HOME` is never set. `~/.proto` stays
 exactly where proto puts it, and `bin/install` places a single file symlink
 inside it:
@@ -542,7 +542,7 @@ and has nobody to notify.
 Archiving *alone* is not enough. The banner says only that the repository is
 read-only; it never says where the content went, so `git clone … ~/.proto` would
 stay the first thing a visitor reads, and that instruction has no correct target
-once consus owns the record. Two README sections are outright migration
+once dotconfigs owns the record. Two README sections are outright migration
 casualties and must be deleted rather than rewritten: the clone bootstrap, and
 the entire "Already have proto installed?" adopt-in-place block, whose
 `git switch -f main` is the exact command `sancus` warns clobbers the local
@@ -551,17 +551,18 @@ the entire "Already have proto installed?" adopt-in-place block, whose
 Deletion is rejected. The 15 commit messages carry the causal record the four
 files do not — in particular that the July version sweep was fallout from the
 uninstall pin-loss rather than deliberate curation, and why ruby and rust carry
-no lock entries. That is the reasoning behind the pins consus is about to adopt.
+no lock entries. That is the reasoning behind the pins dotconfigs is about to
+adopt.
 
 So: one final commit reducing `README.md` to a deprecation notice pointing at
-consus, keeping `.prototools` and `.protolock` as a dated snapshot; then
+dotconfigs, keeping `.prototools` and `.protolock` as a dated snapshot; then
 archive. Order matters, because an archived repo is read-only.
 
 Then, separately and locally, `~/.proto/.git` moves into the backup directory.
 Deprecation is not finished while it exists: it claims ownership of
 `~/.proto/.prototools`, so any `git checkout`, `git switch` or `git pull` run
-there restores the old record over the link, and `git status` reports consus's
-version as modified.
+there restores the old record over the link, and `git status` reports
+dotconfigs's version as modified.
 
 ## What breaks in sancus
 
@@ -574,7 +575,7 @@ table rows, two "four config repos" counts, the adopt-in-place bullet, and the
 clone-ordering bullet. That last one does not disappear — it **inverts**. Today
 it says clone `dotproto` before anything starts proto, because a stray `proto`
 call wedges the clone. Afterwards there is no clone to wedge, and the ordering
-constraint becomes consus's: `bin/install` must run before the record is
+constraint becomes dotconfigs's: `bin/install` must run before the record is
 expected to exist.
 
 A further 41 lines live in sancus's own `docs/superpowers/` and are historical

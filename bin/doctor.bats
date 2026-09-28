@@ -1,5 +1,5 @@
 #!/usr/bin/env bats
-# consus/bin/doctor.bats — the record's assertions, one per test. A report,
+# dotconfigs/bin/doctor.bats — the record's assertions, one per test. A report,
 # never a repair: nothing here writes to the record or to the links.
 #
 # Link integrity is the one invariant git cannot express — the repo can be

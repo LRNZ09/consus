@@ -1,11 +1,11 @@
-# proto into consus Implementation Plan
+# proto into dotconfigs Implementation Plan
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use
 > superpowers:subagent-driven-development (recommended) or
 > superpowers:executing-plans to implement this plan task-by-task. Steps use
 > checkbox (`- [ ]`) syntax for tracking.
 
-**Goal:** Move proto's global `.prototools` into `consus` as
+**Goal:** Move proto's global `.prototools` into `dotconfigs` as
 `configs/proto/.prototools`, reached through a file symlink at proto's own
 path, and archive `LRNZ09/dotproto` — without moving the 2.3 GB store, without
 setting `PROTO_HOME`, and without a human at the keyboard.
@@ -23,9 +23,9 @@ that earns its place — declared-but-not-installed, read from each tool's
 Homebrew, fish 4.8.0, `jq` 1.8.2 (declared in sancus's `Brewfile:68`), git
 2.55.0, lefthook, gitleaks, `gh` for the archive.
 
-**Spec:** `docs/superpowers/specs/2026-09-21-proto-into-consus-design.md` —
-read it alongside this plan. Every "why" lives there; this plan argues from it
-and does not restate its measurements.
+**Spec:** `docs/superpowers/specs/2026-09-21-proto-into-dotconfigs-design.md`
+— read it alongside this plan. Every "why" lives there; this plan argues from
+it and does not restate its measurements.
 
 ## Running this unattended
 
@@ -52,7 +52,7 @@ it to reconcile.
 
 Every task's requirements implicitly include this section.
 
-- **Clone path:** `~/Developer/LRNZ09/consus`, already present, on `main`.
+- **Clone path:** `~/Developer/LRNZ09/dotconfigs`, already present, on `main`.
 - **State file:** `~/Backups/proto-consus.env`. Tasks append `KEY=value` lines
   and later tasks open with `. ~/Backups/proto-consus.env`.
 - **Nothing on this machine is ever deleted.** Every displaced path is *moved*
@@ -156,7 +156,7 @@ Every task's requirements implicitly include this section.
 ## File Structure
 
 ```text
-~/Developer/LRNZ09/consus/
+~/Developer/LRNZ09/dotconfigs/
 ├── README.md                          Task 9  — four of the six contract items
 ├── .gitignore                         Task 3  — one defensive line
 ├── bin/install                        Task 5  — classify_file, the proto path
@@ -167,9 +167,9 @@ Every task's requirements implicitly include this section.
 │       ├── .prototools                the record: 9 pins, 6 settings
 │       └── README.md                  the knowledge dotproto held
 └── docs/superpowers/
-    ├── specs/2026-09-21-proto-into-consus-design.md   committed as 2c6cea1
-    ├── specs/2026-08-21-consus-migration-design.md    Task 9 — 5 edits
-    └── plans/2026-09-21-proto-into-consus.md          this plan
+    ├── specs/2026-09-21-proto-into-dotconfigs-design.md   committed as 2c6cea1
+    ├── specs/2026-08-21-dotconfigs-migration-design.md    Task 9 — 5 edits
+    └── plans/2026-09-21-proto-into-dotconfigs.md          this plan
 ```
 
 Nothing under `configs/proto/` is generated, so it needs no allow-list block —
@@ -232,8 +232,8 @@ proto_store=$(
 # The heredoc is UNQUOTED on purpose: every value below is expanded now and
 # written as a literal.
 cat > ~/Backups/proto-consus.env <<EOF
-# proto-into-consus migration state. Sourced by every task in
-# docs/superpowers/plans/2026-09-21-proto-into-consus.md.
+# proto-into-dotconfigs migration state. Sourced by every task in
+# docs/superpowers/plans/2026-09-21-proto-into-dotconfigs.md.
 # Appended to as the migration progresses; never committed.
 #
 # Every value here is a literal, resolved once when this file was written.
@@ -245,7 +245,7 @@ cat > ~/Backups/proto-consus.env <<EOF
 export GH_PROMPT_DISABLED=1 GH_NO_UPDATE_NOTIFIER=1 GIT_EDITOR=false
 export PROTO_YES=true PROTO_REPORTER=text
 
-CLONE="$HOME/Developer/LRNZ09/consus"
+CLONE="$HOME/Developer/LRNZ09/dotconfigs"
 SP="$HOME/Backups/proto-consus-sandbox"
 BK="$HOME/Backups/proto-consus-$(date +%Y%m%dT%H%M%S)"
 STORE="$proto_store"
@@ -607,7 +607,7 @@ is not in this repo and never should be. The list is illustrative, not
 exhaustive: proto creates directories at the store root over time, and the rule
 is that the record is the only thing here, not that those are the only things
 there. `PROTO_HOME` relocates all of it at once, so there is no way to keep the
-record here and the payload elsewhere by moving the variable. consus does not
+record here and the payload elsewhere by moving the variable. dotconfigs does not
 set `PROTO_HOME`; proto's own default is what runs.
 
 ## Three things that are not in the upstream docs
@@ -1338,7 +1338,7 @@ cat > "$SP/tests-proto.sh" <<'SUITE'
 # against a throwaway fixture. No real path is touched: every run redirects
 # both XDG_CONFIG_HOME and PROTO_HOME into $SB.
 set -eu
-REPO=${REPO:?set REPO to the consus clone under test}
+REPO=${REPO:?set REPO to the dotconfigs clone under test}
 SB=${SB:?set SB to a scratch directory}
 
 f=0
@@ -1743,7 +1743,7 @@ connectivity. It pins a version it does not install; `git restore` undoes it.
 **Files:**
 
 - Modify: `README.md`
-- Modify: `docs/superpowers/specs/2026-08-21-consus-migration-design.md`
+- Modify: `docs/superpowers/specs/2026-08-21-dotconfigs-migration-design.md`
 
 **Interfaces:**
 
@@ -1831,10 +1831,10 @@ markdownlint-cli2 README.md
 ```sh
 . ~/Backups/proto-consus.env
 cd "$CLONE"
-D=docs/superpowers/specs/2026-08-21-consus-migration-design.md
+D=docs/superpowers/specs/2026-08-21-dotconfigs-migration-design.md
 grep -q '`~/.claude` and `~/.proto` keep their own repos' "$D" &&
 	{ echo "FAIL: the out-of-scope bullet still excludes ~/.proto"; exit 1; }
-grep -q '2026-09-21-proto-into-consus-design' "$D" ||
+grep -q '2026-09-21-proto-into-dotconfigs-design' "$D" ||
 	{ echo "FAIL: the design does not name its amendment"; exit 1; }
 grep -q '| `proto` |' "$D" || { echo "FAIL: no proto row in the activation table"; exit 1; }
 markdownlint-cli2 "$D"
@@ -1845,7 +1845,7 @@ markdownlint-cli2 "$D"
 ```sh
 . ~/Backups/proto-consus.env
 cd "$CLONE"
-git add README.md docs/superpowers/specs/2026-08-21-consus-migration-design.md
+git add README.md docs/superpowers/specs/2026-08-21-dotconfigs-migration-design.md
 git commit -m "Record proto in the README and the 2026-08-21 design"
 test -z "$(git status --porcelain)"
 ```
@@ -1858,7 +1858,7 @@ cd "$CLONE"
 git push origin main
 sha=$(git rev-parse HEAD)
 for _ in $(seq 1 40); do
-	c=$(gh run list --repo LRNZ09/consus --commit "$sha" \
+	c=$(gh run list --repo LRNZ09/dotconfigs --commit "$sha" \
 		--json conclusion --jq '.[0].conclusion' 2>/dev/null || echo '')
 	case "$c" in
 	success) echo "CI green"; break ;;
@@ -1883,7 +1883,7 @@ returns an empty list.
 **Interfaces:**
 
 - Consumes: `DOTPROTO_HEAD` from Task 2.
-- Produces: an archived repository whose landing page points at consus.
+- Produces: an archived repository whose landing page points at dotconfigs.
 
 - [ ] **Step 1: Clone it somewhere harmless**
 
@@ -1912,7 +1912,7 @@ test -n "$snap" || { echo "FAIL: could not date $DOTPROTO_HEAD"; exit 1; }
 cat > README.md <<'EOF'
 # dotproto — deprecated
 
-proto's configuration now lives in **[LRNZ09/consus](https://github.com/LRNZ09/consus)**,
+proto's configuration now lives in **[LRNZ09/dotconfigs](https://github.com/LRNZ09/dotconfigs)**,
 at `configs/proto/.prototools`, reached through a symlink at
 `$PROTO_HOME/.prototools` placed by that repo's `bin/install`.
 
@@ -1924,7 +1924,7 @@ versioned.
 
 `.prototools` and `.protolock` are kept below as a dated snapshot of this
 machine's toolchain on @SNAPSHOT_DATE@. The lockfile in particular is not
-carried into consus: it is inert at global scope, is written only when the
+carried into dotconfigs: it is inert at global scope, is written only when the
 current directory is inside the store, and has no entry for ruby or rust.
 
 The 15 commits here are the reason anything is worth keeping — they record why
@@ -1936,7 +1936,7 @@ grep -q '@SNAPSHOT_DATE@' README.md &&
 	{ echo "FAIL: the placeholder survived"; exit 1; }
 grep -q "$snap" README.md || { echo "FAIL: the date was not substituted"; exit 1; }
 git add README.md
-git commit -m "Point this repo at consus and deprecate it"
+git commit -m "Point this repo at dotconfigs and deprecate it"
 git push origin main
 ```
 
@@ -1964,7 +1964,7 @@ test ! -e "$STORE/.git"
 test ! -e "$STORE/bin/proto"
 /opt/homebrew/bin/fish -c 'true' 2>"$SP/final.err"
 test ! -s "$SP/final.err"
-echo "proto-into-consus complete"
+echo "proto-into-dotconfigs complete"
 ```
 
 - [ ] **Step 5: Confirm the sancus follow-up is recorded where it survives**
@@ -1972,7 +1972,7 @@ echo "proto-into-consus complete"
 ```sh
 . ~/Backups/proto-consus.env
 cd "$CLONE"
-S=docs/superpowers/specs/2026-09-21-proto-into-consus-design.md
+S=docs/superpowers/specs/2026-09-21-proto-into-dotconfigs-design.md
 grep -q '^## What breaks in sancus' "$S" ||
 	{ echo "FAIL: the sancus follow-up is not in the committed spec"; exit 1; }
 sed -n '/^## What breaks in sancus/,/^## /p' "$S" | sed '$d'
@@ -2022,7 +2022,7 @@ is guarded by the `-L` test above; removing a link never touches its target.
 `gh repo unarchive LRNZ09/dotproto` restores the repository to writable. The
 pointer commit stays in history and can be reverted.
 
-The consus commits are ordinary commits on `main`, so `git revert` each.
+The dotconfigs commits are ordinary commits on `main`, so `git revert` each.
 
 **Do not `git reset --hard` after Task 8.** Once the link is live,
 `configs/proto/.prototools` is not merely a repo file — it is the file proto

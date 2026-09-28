@@ -1,5 +1,5 @@
 #!/bin/sh
-# consus/bin/doctor — run the record's assertions against this machine.
+# dotconfigs/bin/doctor — run the record's assertions against this machine.
 # Exits 0 when they all hold. The assertions themselves, and why each one
 # exists, are in doctor.bats next to this file.
 set -eu

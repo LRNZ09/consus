@@ -1,4 +1,4 @@
-title = "dotgit secret-scanning config"
+title = "dotconfigs secret-scanning config"
 
 # Start from gitleaks' built-in rules (API keys, tokens, private keys, ...).
 [extend]

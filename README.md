@@ -1,4 +1,4 @@
-# consus
+# dotconfigs
 
 The configuration this machine's tools actually read. It lives under `configs/`,
 one directory per tool, and each tool finds it at its own default path, which is
@@ -126,4 +126,4 @@ The [design document][design] carries the eight mechanisms that were priced,
 the five silent failure modes that killed the runner-up, the destruction
 accounting, and the record of the migration itself.
 
-[design]: docs/superpowers/specs/2026-08-21-consus-migration-design.md
+[design]: docs/superpowers/specs/2026-08-21-dotconfigs-migration-design.md

@@ -7,8 +7,8 @@ never clobber but can refuse or land inside a directory — see "Traps".
 
    ```sh
    brew install lefthook gitleaks proto jq bats-core
-   git clone https://github.com/LRNZ09/consus.git ~/Developer/LRNZ09/consus
-   cd ~/Developer/LRNZ09/consus
+   git clone https://github.com/LRNZ09/dotconfigs.git ~/Developer/LRNZ09/dotconfigs
+   cd ~/Developer/LRNZ09/dotconfigs
    ```
 
    `bats-core` is what `bin/doctor` runs on; `jq` is what it reads proto's

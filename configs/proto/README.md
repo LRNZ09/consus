@@ -10,8 +10,8 @@ is not in this repo and never should be. The list is illustrative, not
 exhaustive: proto creates directories at the store root over time, and the rule
 is that the record is the only thing here, not that those are the only things
 there. `PROTO_HOME` relocates all of it at once, so there is no way to keep the
-record here and the payload elsewhere by moving the variable. consus does not
-set `PROTO_HOME`; proto's own default is what runs.
+record here and the payload elsewhere by moving the variable. dotconfigs does
+not set `PROTO_HOME`; proto's own default is what runs.
 
 ## Three things that are not in the upstream docs
 
