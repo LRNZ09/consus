@@ -25,9 +25,11 @@ seven alternatives — is unchanged and still correct, and `bin/doctor` still
 enforces it.
 **Renamed 2026-09-29:** from `consus` to `dotconfigs`, on GitHub and on disk,
 with every document rewritten to the new name. GitHub redirects the old URL,
-so no repo may take the name `consus` again. Backups made before the rename
-keep their names — `~/Backups/consus-install-…`, `~/Backups/proto-consus*` —
-which is why the plans still quote them.
+so no repo may take the name `consus` again. Backups made under that name keep
+it — `~/Backups/consus-install-…` and `~/Backups/proto-consus*` — which is why
+these documents still quote them. The 2026-08-21 migration itself ran under an
+earlier codename, so the backup and state paths its plan quotes were never on
+disk under the names shown; `ls ~/Backups` has the real ones.
 
 ## What this does
 
@@ -44,15 +46,14 @@ against a baseline recorded in Phase 0 instead.) GitHub redirects the old URL,
 so no clone or remote anywhere breaks.
 
 The name says what the repo holds: the configuration this machine's tools read,
-kept in one place and put where each tool already looks. The rest of the family
-is named for a Roman deity whose domain matches the repo's function — `vesta`
-the hearth for the homelab interior, `janus` the doorway for its gateway,
-`sancus` good faith for the machine record — and this repo carried such a
-codename until the rename recorded above. Installing it twice changes nothing,
-which is the claim `bin/install` makes.
+kept in one place and put where each tool already looks. Its sibling repos are
+each named for a Roman deity whose domain matches their function — `vesta` the
+hearth for the homelab interior, `janus` the doorway for its gateway — and this
+repo carried such a codename until the rename recorded above.
 
 The repo's central property is safety by construction: no credential can enter
-the working tree, nothing is ever deleted, and every move reverses.
+the working tree, nothing is ever deleted, and every move reverses. Installing
+it twice changes nothing, which is the claim `bin/install` made.
 
 `~/.config` never becomes a repo and holds no `.git`. Each tool finds its
 configuration at its **own default path**, which is a symlink into the repo:

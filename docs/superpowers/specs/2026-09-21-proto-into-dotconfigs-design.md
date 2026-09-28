@@ -561,8 +561,8 @@ archive. Order matters, because an archived repo is read-only.
 Then, separately and locally, `~/.proto/.git` moves into the backup directory.
 Deprecation is not finished while it exists: it claims ownership of
 `~/.proto/.prototools`, so any `git checkout`, `git switch` or `git pull` run
-there restores the old record over the link, and `git status` reports
-dotconfigs's version as modified.
+there restores the old record over the link, and `git status` reports the
+dotconfigs version as modified.
 
 ## What breaks in sancus
 
@@ -575,7 +575,7 @@ table rows, two "four config repos" counts, the adopt-in-place bullet, and the
 clone-ordering bullet. That last one does not disappear — it **inverts**. Today
 it says clone `dotproto` before anything starts proto, because a stray `proto`
 call wedges the clone. Afterwards there is no clone to wedge, and the ordering
-constraint becomes dotconfigs's: `bin/install` must run before the record is
+constraint passes to dotconfigs: `bin/install` must run before the record is
 expected to exist.
 
 A further 41 lines live in sancus's own `docs/superpowers/` and are historical
