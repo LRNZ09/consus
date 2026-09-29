@@ -98,7 +98,7 @@ never clobber but can refuse or land inside a directory — see "Traps".
   empties `configs/fish/` here. See "The hazard of a linked directory" in the
   [README](README.md).
 - There used to be a 714-line `bin/install` doing all of the above. It was
-  built for a provisioner that no longer exists; step 3, less its agents link,
-  is what it did.
+  built for a provisioner that no longer exists; step 3 less its agents link,
+  plus step 2's `chmod 700 .` and `lefthook install`, is what it did.
 
 [brewfile]: https://github.com/LRNZ09/brewfile
