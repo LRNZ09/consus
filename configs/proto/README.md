@@ -1,8 +1,9 @@
 # proto
 
 `.prototools` here is proto's **global** record. `$PROTO_HOME/.prototools` is a
-symlink to it, placed by `bin/install`, so proto reads and writes this file
-directly and a `proto pin` arrives as an unstaged modification.
+symlink to it, made by step 3 of [INSTALL.md](../../INSTALL.md), so proto reads
+and writes this file directly and a `proto pin` arrives as an unstaged
+modification.
 
 Everything else in the store — `bin/`, `shims/`, `tools/`, `plugins/`, `cache/`,
 `builders/`, `temp/`, `backends/`, the `id` file, and whatever proto adds next —

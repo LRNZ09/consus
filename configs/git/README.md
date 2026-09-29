@@ -1,7 +1,7 @@
 # git
 
 My global Git configuration. Through `~/.config/git` — a symlink into this
-repo's `configs/git`, created by [`../../bin/install`](../../bin/install) — Git
+repo's `configs/git`, made by step 3 of [INSTALL.md](../../INSTALL.md) — Git
 reads `config` here as its global config file and `ignore` as its global
 excludes file. Neither needs an `[include]` line or a `core.excludesfile`
 setting: both are Git's own default paths, and the link is what makes them
