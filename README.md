@@ -29,7 +29,8 @@ here.
 - **configs/fish** — the hand-written configuration only: `config.fish`,
   `fish_plugins`, three files under `conf.d/` and one function. Everything
   fisher or a tool generated is ignored on purpose — `fish_plugins` is the
-  record, and those 82 plugin files are its build output.
+  record, and those 84 plugin files are its build output. `fisher update`
+  installs every plugin it lists — [INSTALL.md](INSTALL.md) step 5.
 - **configs/ghostty** — four settings, plus an optional per-machine include.
 - **configs/proto** — the global record, `.prototools`, nine pins — every
   toolchain this record owns. The 2.3 GB store itself stays outside the repo,
@@ -81,8 +82,9 @@ directory" below for why it exists.
 anything that writes through them writes here. In particular,
 `rm -rf ~/.config/fish/` — with the trailing slash — follows the link and
 empties this repo's `configs/fish/` directory. `git restore` brings back the six
-tracked files; the other 91 need `fisher update` (which needs network), a tool
-regenerating its own completions, or OrbStack running again.
+tracked files; the other 94 need `fisher update` (which needs network), a tool
+regenerating its own completions, or OrbStack running again — except the
+machine-local files, which nothing regenerates.
 
 `bin/doctor` exists because link integrity is the one invariant git cannot
 express: this repo can be pristine while `~/.config` points somewhere else, and

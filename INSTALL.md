@@ -45,15 +45,29 @@ never clobber but can refuse or land inside a directory — see "Traps".
    proto install --config-mode global
    ```
 
-5. fisher. A fresh clone has `fish_plugins` and no fisher at all — fisher's own
-   two files are among the ignored ones, so the command that reads the record
-   does not exist yet:
+5. fisher, and every plugin in `fish_plugins`. A fresh clone has the record and
+   no fisher at all — fisher's own two files are among the ignored ones — so
+   fisher is sourced once from the network and then reads the record. The
+   record's first line is `jorgebucaran/fisher`, so the same command makes
+   fisher itself permanent:
 
    ```fish
    curl -sL https://raw.githubusercontent.com/jorgebucaran/fisher/main/functions/fisher.fish | source
-   fisher install jorgebucaran/fisher   # makes fisher itself permanent
-   fisher update                        # materialises the rest from fish_plugins
+   fisher update
    ```
+
+   `fisher update` with no arguments is the command that reads
+   `fish_plugins`: it installs what the file lists and this machine lacks,
+   removes what it no longer lists, and moves the rest to the newest release
+   its pin allows. It is also how a machine catches up after a pull changes the
+   record.
+
+   To add a plugin, append it to `fish_plugins`, run `fisher update`, and
+   commit the file. `fisher install <plugin>` would also work, but it rewrites
+   `fish_plugins` from fisher's list of what is installed. Any declared plugin
+   fisher knows under another name loses its pin — `jhillyerd/plugin-git@v0.4`
+   had been installed unpinned, so an install would have committed it as bare
+   `jhillyerd/plugin-git`.
 
 6. The skills. `npx` is only on `PATH` via step 5's fish, which proto's
    `conf.d/proto.fish` activates — zsh never gets it from `proto install`

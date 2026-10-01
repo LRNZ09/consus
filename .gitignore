@@ -5,9 +5,10 @@
 # trailing comment becomes part of the pattern and silently disables it.
 /configs/git/.remember/
 
-# fish: the record is what I wrote. Tools generated the other 91 entries —
-# fisher owns 82, fish_plugins is the declaration behind those, five are
-# tool-generated and three are OrbStack completion symlinks.
+# fish: the record is what I wrote. The other 94 entries are not — fisher
+# owns 84, fish_plugins is the declaration behind those, six are other tools'
+# output, three are OrbStack completion symlinks, and one is a machine-local
+# function.
 #
 # The two directory re-includes must stay below /configs/fish/*: a file cannot
 # be re-included once a parent directory is excluded. Measured — hoisted above
