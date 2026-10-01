@@ -74,10 +74,6 @@ directory" below for why it exists.
 - **proto** — per-project pins belong in that project's own `.prototools`;
   the record here, `configs/proto/.prototools`, is only the global fallback
   proto uses when no project pin applies.
-- **the work-term guard** — `.git/info/terms.tsv`, the terms it refuses. It
-  lives outside the working tree, so git can neither stage nor clean it, and
-  no clone carries it: keep a backup, since without it every commit is
-  refused.
 
 ## The hazard of a linked directory
 
@@ -111,14 +107,6 @@ until CI flags a push, by which time the commit is public.
 `.github/workflows/gitleaks.yml` re-scans the full history on every push, as
 the backstop `--no-verify` cannot bypass. Rules live in `.gitleaks.toml`, which
 flags any committed email address that is not a GitHub noreply.
-
-A second guard keeps work terms out of this public repo, over every file and
-every commit message. `bin/work-terms` runs in lefthook's `pre-commit`,
-`commit-msg` and `pre-push` hooks against the term list in
-`.git/info/terms.tsv`, and fails closed: without the list nothing can be
-committed. Cherry-pick, rebase, am and merge run no `pre-commit`, so
-`pre-push` is what sees their commits. Unlike gitleaks it cannot run in CI —
-the list is private — so `pre-push` is its backstop.
 
 ## Why any of this
 

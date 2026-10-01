@@ -16,18 +16,13 @@ never clobber but can refuse or land inside a directory — see "Traps".
    from that already has them.
 
 2. The repo's own settings. `~/.config` is mode 700 and the links lead here,
-   but a fresh clone under `~/Developer` is 755; `lefthook install` is needed
-   once per clone, so gitleaks and the work-term guard see each commit as well
-   as every push; and the guard's term list lives in `.git/info/terms.tsv`,
-   which no clone carries. Restore it from wherever its backup lives, mode 600:
+   but a fresh clone under `~/Developer` is 755; and `lefthook install` is
+   needed once per clone, so gitleaks sees each commit as well as every push:
 
    ```sh
    chmod 700 .
    lefthook install
-   install -m 600 <backup>/terms.tsv .git/info/terms.tsv
    ```
-
-   Until it is there, every commit is refused.
 
 3. The four links and the ghostty include. `git` goes last on purpose: from
    the moment anything displaces `~/.config/git` until the link lands there is
@@ -99,6 +94,6 @@ never clobber but can refuse or land inside a directory — see "Traps".
   [README](README.md).
 - There used to be a 714-line `bin/install` doing all of the above. It was
   built for a provisioner that no longer exists; step 3 less its agents link,
-  plus step 2's `chmod 700 .` and `lefthook install`, is what it did.
+  plus step 2, is what it did.
 
 [brewfile]: https://github.com/LRNZ09/brewfile

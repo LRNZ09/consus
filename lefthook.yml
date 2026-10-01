@@ -1,30 +1,17 @@
 assert_lefthook_installed: true
-# The work-term guard (bin/work-terms) runs as scripts in pre-commit and
-# pre-push, from .lefthook/<hook>/work-terms.sh, and gitleaks runs as one in
-# pre-push, from .lefthook/pre-push/gitleaks.sh. Measured on 2.1.14: lefthook
-# skips a command whose own file list is empty — a typechange-only commit, a
-# commit that changes no file, a push of a branch other than HEAD — and a
-# skipped guard passes everything. Scripts always run, and each script with
-# use_stdin gets all of git's ref lines, whatever the others read.
+# gitleaks runs as a script in pre-push, from .lefthook/pre-push/gitleaks.sh,
+# rather than as a command. Measured on 2.1.14: lefthook skips a command whose
+# own file list is empty — a push of a branch other than HEAD, for one — and a
+# skipped scan passes everything. Scripts always run, and a script with
+# use_stdin gets all of git's ref lines.
 pre-commit:
-  parallel: true
   commands:
     gitleaks:
       run: |
         command -v gitleaks >/dev/null || { echo "✖ gitleaks not installed — brew install gitleaks"; exit 1; }
         gitleaks git --staged --no-banner --redact -v --config .gitleaks.toml
-  scripts:
-    work-terms.sh:
-      runner: sh
-commit-msg:
-  commands:
-    work-terms:
-      run: bin/work-terms check-msg {1}
 pre-push:
   scripts:
-    work-terms.sh:
-      runner: sh
-      use_stdin: true
     gitleaks.sh:
       runner: sh
       use_stdin: true

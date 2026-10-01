@@ -7,8 +7,7 @@
 # proto a severed link is completely silent. For agents a dangling one is
 # worse than silent: see the agents link test. Since the links are now made by
 # hand (INSTALL.md), the two things the old installer did quietly — the clone's
-# mode and lefthook's hooks — are asserted here too, and so is the work-term
-# list the guards read, which lives outside the working tree.
+# mode and lefthook's hooks — are asserted here too.
 #
 # Run it as bin/doctor. The one side effect is the fish probe: `fish -c`
 # sources conf.d/proto.fish, which runs `proto activate`, and that materialises
@@ -90,11 +89,11 @@ require_link() {
 }
 
 @test "lefthook's hooks are installed in this clone" {
-	# All three, not only pre-commit: lefthook install writes just the hooks
-	# lefthook.yml lists, so a clone installed before the work-term guard has a
-	# pre-commit hook and neither of the other two.
+	# Both, not only pre-commit: lefthook install writes just the hooks
+	# lefthook.yml lists when it runs, and pre-push is the scan that sees what
+	# no pre-commit did — cherry-picks, rebases, merges.
 	local hook missing=0
-	for hook in pre-commit commit-msg pre-push; do
+	for hook in pre-commit pre-push; do
 		grep -q lefthook "$REPO/.git/hooks/$hook" 2>/dev/null || {
 			echo "$hook is not lefthook's"
 			missing=1
@@ -102,8 +101,8 @@ require_link() {
 	done
 	[ "$missing" -eq 0 ] || {
 		echo "run: cd $REPO && lefthook install"
-		echo "without them gitleaks does not see a commit until it is pushed, and"
-		echo "the work-term guard, which never runs in CI, does not see it at all"
+		echo "without them gitleaks does not see a commit until CI scans the push,"
+		echo "by which time it is public"
 		return 1
 	}
 }
@@ -262,26 +261,6 @@ require_link() {
 	}
 	[ "$missing" -eq 0 ] || {
 		echo "$missing missing — run: npx @sentry/dotagents --user install (needs network)"
-		return 1
-	}
-}
-
-@test "the work-term list is readable" {
-	# Without it every guard fails closed and nothing can be committed; this
-	# names the file before a commit does. It lives in .git/info, where git can
-	# neither stage nor clean it, and exists nowhere else on this machine.
-	# Exactly one guard row: the guards refuse a second one, which used to
-	# replace the first in silence.
-	local terms rows
-	terms="${WORK_TERMS:-$(git -C "$REPO" rev-parse --path-format=absolute --git-common-dir)/info/terms.tsv}"
-	[ -r "$terms" ] || {
-		echo "$terms is missing or unreadable — restore it from backup (INSTALL.md step 2)"
-		return 1
-	}
-	rows=$(grep -c "^guard$(printf '\t')" "$terms" || true)
-	[ "$rows" -eq 1 ] || {
-		echo "$terms has $rows guard rows, so every guard refuses everything;"
-		echo "it needs exactly one (join terms with |)"
 		return 1
 	}
 }
