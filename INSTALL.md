@@ -15,14 +15,15 @@ never clobber but can refuse or land inside a directory — see "Traps".
    manifests with. Both are in the [brewfile][brewfile] too, so a machine built
    from that already has them.
 
-2. The repo's own settings. `~/.config` is mode 700 and the links lead here,
-   but a fresh clone under `~/Developer` is 755; and `lefthook install` is
-   needed once per clone, so gitleaks sees each commit as well as every push:
+2. The clone's own settings. Git carries neither, so each clone needs them
+   once. Run them from the repo root, where step 1 left you:
 
-   ```sh
-   chmod 700 .
-   lefthook install
-   ```
+   - `chmod 700 .` — step 3 links `~/.config/git` and `~/.config/fish` into
+     this directory, and a link is only as private as what it points to.
+     `~/.config` is 700, but git doesn't record directory modes, so a fresh
+     clone is 755 and anyone on the machine could read that config here.
+   - `lefthook install` — so gitleaks scans each commit and each push here,
+     not only in CI once the push is public.
 
 3. The four links and the ghostty include. `git` goes last on purpose: from
    the moment anything displaces `~/.config/git` until the link lands there is

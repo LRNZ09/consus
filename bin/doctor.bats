@@ -78,8 +78,9 @@ require_link() {
 }
 
 @test "the clone is mode 700" {
-	# $CONFIG_HOME is 700 and the links lead here, so this directory is read
-	# through them; a fresh clone under ~/Developer is 755.
+	# $CONFIG_HOME/git and $CONFIG_HOME/fish link into this directory, and a
+	# link is only as private as what it points to: $CONFIG_HOME is 700, but
+	# git records no directory modes, so a fresh clone is 755.
 	local mode
 	mode=$(stat -f %Lp -- "$REPO")
 	[ "$mode" = 700 ] || {
